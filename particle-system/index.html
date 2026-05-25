@@ -1,0 +1,3404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Particle System - Gesture Control</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel-bg: rgba(20, 20, 35, 0.85);
+    --text: #e0e0e0;
+    --accent: #7c5cfc;
+    --accent-glow: rgba(124, 92, 252, 0.4);
+    --danger: #ff4d6a;
+    --radius: 16px;
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #canvas-container {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+  }
+
+  canvas { display: block; }
+
+  /* Webcam preview */
+  #webcam-overlay {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 10;
+    width: 160px;
+    height: 120px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.15);
+    opacity: 0.7;
+    transition: opacity var(--transition), transform var(--transition);
+    cursor: pointer;
+    background: #000;
+  }
+  #webcam-overlay:hover { opacity: 1; transform: scale(1.05); }
+  #webcam-overlay.hidden { opacity: 0; pointer-events: none; transform: scale(0.9); }
+  #webcam-overlay video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+  }
+
+  /* Gesture status dot */
+  #gesture-indicator {
+    position: fixed;
+    bottom: 28px;
+    right: 200px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-size: 12px;
+    color: var(--text);
+  }
+  #gesture-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff4d6a;
+    transition: background 0.3s;
+  }
+  #gesture-dot.active { background: #4dff88; box-shadow: 0 0 8px rgba(77,255,136,0.6); }
+  #gesture-dot.partial { background: #ffaa4d; box-shadow: 0 0 8px rgba(255,170,77,0.6); }
+
+  /* Main UI Panel */
+  #panel {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 10;
+    width: 260px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  #panel h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.5px;
+    text-align: center;
+  }
+  #panel h2 span { color: var(--accent); }
+
+  /* Model selector */
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: -12px;
+  }
+
+  .model-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .model-btn {
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.6);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    white-space: nowrap;
+  }
+  .model-btn:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.2);
+    color: #fff;
+  }
+  .model-btn.active {
+    background: rgba(124, 92, 252, 0.2);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
+  .model-icon { font-size: 18px; line-height: 1; }
+
+  /* Color picker */
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .color-row label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    flex-shrink: 0;
+  }
+  #color-picker {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.2);
+    cursor: pointer;
+    background: transparent;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  #color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+  #color-picker::-webkit-color-swatch { border-radius: 50%; border: none; }
+  .color-presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .color-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all var(--transition);
+  }
+  .color-dot:hover { transform: scale(1.2); border-color: rgba(255,255,255,0.5); }
+
+  /* Sliders */
+  .slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .slider-group label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.1);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid #fff;
+  }
+
+  /* Buttons row */
+  .btn-row {
+    display: flex;
+    gap: 8px;
+  }
+  .icon-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.08); }
+  .icon-btn.fullscreen-btn { background: rgba(255,255,255,0.06); }
+
+  /* Mok gesture display */
+  #mok-gesture-display {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 24px;
+    background: rgba(0, 20, 30, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 200, 220, 0.3);
+    font-size: 15px;
+    color: #0ff;
+    transition: all 0.25s ease;
+  }
+  #mok-gesture-icon { font-size: 28px; transition: transform 0.2s; }
+  #mok-gesture-label { font-weight: 500; letter-spacing: 1px; }
+  #mok-gesture-display.exploding {
+    border-color: rgba(255, 100, 50, 0.7);
+    box-shadow: 0 0 30px rgba(255, 80, 20, 0.5);
+    animation: explosionPulse 0.15s ease-out 2;
+  }
+  @keyframes explosionPulse {
+    0%, 100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.08); }
+  }
+
+  /* Vignette overlay */
+  #vignette-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 35%, rgba(5,0,15,0.85) 85%, rgba(2,0,8,0.95) 100%);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  #vignette-overlay.active { opacity: 1; }
+
+  /* White flash overlay */
+  #flash-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(255,240,255,0.95) 0%, rgba(255,200,255,0.6) 40%, rgba(255,255,255,0) 75%);
+    opacity: 0;
+    transition: opacity 0.05s ease-out;
+  }
+  #flash-overlay.peak { opacity: 1; transition: opacity 0.05s ease-out; }
+
+  /* Shockwave ring */
+  #shockwave-ring {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    z-index: 6;
+    pointer-events: none;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    border: 4px solid rgba(200, 100, 255, 0.7);
+    box-shadow: 0 0 60px rgba(180, 60, 255, 0.5), 0 0 120px rgba(255, 80, 20, 0.3), inset 0 0 60px rgba(200, 100, 255, 0.15);
+    opacity: 0;
+  }
+  #shockwave-ring.expanding {
+    animation: shockwaveExpand 1.8s cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
+  }
+  @keyframes shockwaveExpand {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+    25% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.9; }
+    60% { transform: translate(-50%, -50%) scale(2.2); opacity: 0.4; }
+    100% { transform: translate(-50%, -50%) scale(3.5); opacity: 0; }
+  }
+
+  /* Shatter canvas */
+  #shatter-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 7;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  #shatter-canvas.active { opacity: 1; }
+
+      #shatter-canvas.healing { opacity: 1; }
+      #crack-glow-canvas{position:fixed;inset:0;z-index:6;pointer-events:none;opacity:0;transition:opacity .08s}
+      #crack-glow-canvas.active{opacity:1}
+      #heatwave-canvas{position:fixed;inset:0;z-index:8;pointer-events:none;opacity:0;transition:opacity .3s}
+      #heatwave-canvas.active{opacity:.6}
+      #heal-ring{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)scale(0);z-index:6;pointer-events:none;width:500px;height:500px;border-radius:50%;border:2px solid rgba(255,180,100,.5);box-shadow:0 0 40px rgba(255,100,30,.3),inset 0 0 40px rgba(255,150,50,.15);opacity:0}
+      #heal-ring.contracting{animation:healRingContract 1.2s cubic-bezier(.6,0,.4,1) forwards}
+      @keyframes healRingContract{0%{transform:translate(-50%,-50%)scale(3);opacity:.7}100%{transform:translate(-50%,-50%)scale(0);opacity:0}}
+
+  /* Camera shake on body */
+body.camera-shake{animation:camShake .08s infinite}
+@keyframes camShake{0%,100%{transform:translate(0,0)}25%{transform:translate(-2px,3px)}50%{transform:translate(3px,-1px)}75%{transform:translate(-1px,-2px)}}
+#heat-shimmer{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;transition:opacity .2s;background:radial-gradient(ellipse at center,transparent 30%,rgba(255,80,0,.07) 60%,rgba(60,0,15,.2) 100%)}
+#heat-shimmer.active{opacity:1}
+#lotus-density{position:fixed;top:100px;left:50%;transform:translateX(-50%);z-index:11;font-size:11px;color:rgba(255,160,60,.7);letter-spacing:2px;pointer-events:none;opacity:0;transition:opacity .3s}
+#lotus-density.show{opacity:1}
+
+  /* Info tip */
+  #info-tip {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    pointer-events: none;
+    transition: opacity 1s;
+  }
+
+  /* Loading overlay */
+  #loading {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    transition: opacity 0.5s;
+  }
+  #loading.hidden { opacity: 0; pointer-events: none; }
+  #loading .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading p { color: rgba(255,255,255,0.5); font-size: 14px; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    #panel {
+      top: auto;
+      bottom: 12px;
+      right: 12px;
+      left: 12px;
+      width: auto;
+      border-radius: var(--radius) var(--radius) 0 0;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 14px;
+    }
+    #panel h2 { display: none; }
+    .model-grid { display: flex; gap: 4px; }
+    .model-btn { padding: 8px 12px; font-size: 11px; }
+    .model-btn .model-icon { font-size: 14px; }
+    #webcam-overlay { width: 100px; height: 75px; bottom: 12px; right: 12px; }
+    #gesture-indicator { bottom: 16px; right: 130px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div id="webcam-overlay">
+  <video id="webcam" playsinline autoplay></video>
+</div>
+
+<div id="gesture-indicator">
+  <div id="gesture-dot"></div>
+  <span id="gesture-text">等待摄像头...</span>
+</div>
+
+<div id="info-tip">张开/合拢手指控制扩散 · 双手距离控制缩放</div>
+
+<div id="mok-gesture-display" style="display:none">
+  <span id="mok-gesture-icon">🖐</span>
+  <span id="mok-gesture-label">张开手掌</span>
+</div>
+
+<div id="vignette-overlay"></div>
+<div id="flash-overlay"></div>
+<div id="shockwave-ring"></div>
+<canvas id="shatter-canvas"></canvas>
+<canvas id="crack-glow-canvas"></canvas>
+<canvas id="heatwave-canvas"></canvas>
+<div id="heal-ring"></div>
+<div id="heat-shimmer"></div>
+<div id="lotus-density"></div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>初始化粒子引擎...</p>
+</div>
+
+<div id="panel">
+  <h2>✦ <span>粒子</span> 控制台</h2>
+
+  <div class="section-label">模型选择</div>
+  <div class="model-grid" id="model-grid">
+    <button class="model-btn active" data-model="heart">
+      <span class="model-icon">❤️</span> 爱心
+    </button>
+    <button class="model-btn" data-model="flower">
+      <span class="model-icon">🌸</span> 花朵
+    </button>
+    <button class="model-btn" data-model="saturn">
+      <span class="model-icon">🪐</span> 土星
+    </button>
+    <button class="model-btn" data-model="buddha">
+      <span class="model-icon">🧘</span> 佛像
+    </button>
+    <button class="model-btn" data-model="fireworks">
+      <span class="model-icon">🎆</span> 烟花
+    </button>
+    <button class="model-btn" data-model="xiao-yan-lotus">
+      <span class="model-icon">🔥</span> 火莲·重瓣
+    </button>
+    <button class="model-btn" data-model="mok">
+      <span class="model-icon">💎</span> Mok
+    </button>
+  </div>
+
+  <div class="section-label">粒子颜色</div>
+  <div class="color-row">
+    <input type="color" id="color-picker" value="#7c5cfc">
+    <div class="color-presets" id="color-presets">
+      <span class="color-dot" style="background:#7c5cfc" data-color="#7c5cfc"></span>
+      <span class="color-dot" style="background:#ff4d6a" data-color="#ff4d6a"></span>
+      <span class="color-dot" style="background:#4dff88" data-color="#4dff88"></span>
+      <span class="color-dot" style="background:#ffaa00" data-color="#ffaa00"></span>
+      <span class="color-dot" style="background:#4dc9f6" data-color="#4dc9f6"></span>
+      <span class="color-dot" style="background:#ff6ec7" data-color="#ff6ec7"></span>
+      <span class="color-dot" style="background:#ff4500" data-color="#ff4500"></span>
+      <span class="color-dot" style="background:#a855f7" data-color="#a855f7"></span>
+      <span class="color-dot" style="background:#ffd700" data-color="#ffd700"></span>
+    </div>
+  </div>
+
+  <div class="slider-group">
+    <label>粒子大小</label>
+    <input type="range" id="size-slider" min="0.02" max="0.2" step="0.01" value="0.06">
+  </div>
+
+  <div class="slider-group">
+    <label>扩散强度</label>
+    <input type="range" id="diffusion-slider" min="0" max="2" step="0.1" value="1">
+  </div>
+
+  <div class="slider-group" id="intensity-group" style="display:none">
+    <label>异火烈度</label>
+    <input type="range" id="intensity-slider" min="0.3" max="2.5" step="0.1" value="1.2">
+  </div>
+
+  <div class="btn-row">
+    <button class="icon-btn" id="btn-webcam" title="切换摄像头预览">📷</button>
+    <button class="icon-btn" id="btn-auto-rotate" title="自动旋转">🔄</button>
+    <button class="icon-btn fullscreen-btn" id="btn-fullscreen" title="全屏模式">⛶</button>
+  </div>
+</div>
+
+<!-- MediaPipe Hands -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+
+<!-- Three.js Import Map -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ==================== DOM REFS ====================
+const container = document.getElementById('canvas-container');
+const webcamOverlay = document.getElementById('webcam-overlay');
+const webcamVideo = document.getElementById('webcam');
+const gestureDot = document.getElementById('gesture-dot');
+const gestureText = document.getElementById('gesture-text');
+const infoTip = document.getElementById('info-tip');
+const loadingEl = document.getElementById('loading');
+const colorPicker = document.getElementById('color-picker');
+const sizeSlider = document.getElementById('size-slider');
+const diffusionSlider = document.getElementById('diffusion-slider');
+const modelGrid = document.getElementById('model-grid');
+const colorPresets = document.getElementById('color-presets');
+
+// ==================== STATE ====================
+// Main lotus particle count - ultra dense
+const PARTICLE_COUNT = 50000;
+// External systems
+const PARTICLE_COUNT_AURA = 25000;
+const PARTICLE_COUNT_SPARKS = 18000;
+const PARTICLE_COUNT_ASH = 12000;
+const PARTICLE_COUNT_WISPS = 10000;
+const PARTICLE_COUNT_RUNES = 8000;
+const PARTICLE_COUNT_ILLUSION = 10000; // 幻境结界微粒
+let currentModel = 'heart';
+let particleColor = new THREE.Color('#7c5cfc');
+let particleSize = 0.06;
+let diffusionStrength = 1.0;
+let gestureScale = 1.0;
+let gestureDiffusion = 0.0;
+let targetScale = 1.0;
+let targetDiffusion = 0.0;
+let smoothScale = 1.0;
+let smoothDiffusion = 0.0;
+let autoRotate = true;
+let handsDetected = 0;
+let modelTransition = 0;
+let transitionFrom = null;
+let transitionTo = null;
+let fireworksTime = 0;
+let isFullscreen = false;
+
+// Base positions for current shape
+let basePositions = null;
+let oldBasePositions = null;
+
+// Lotus-specific animation metadata (expanded for 50K particles)
+let lotusTypes = null;
+let lotusBaseX = null, lotusBaseY = null, lotusBaseZ = null;
+let lotusPhases = null, lotusSpeeds = null, lotusAmps = null;
+let lotusPetalLayer = null;
+let lotusPetalAngle = null;
+let lotusTime = 0;
+let singleHandX = 0.5, singleHandY = 0.5, singleHandZ = 0;
+let handSmoothedX = 0.5, handSmoothedY = 0.5;
+let lotusIntensity = 1.2;
+
+// ==================== EXTERNAL LOTUS SYSTEMS ====================
+let lotusAuraGeo, lotusAuraMat, lotusAuraPoints;
+let lotusAuraPositions, lotusAuraColors, lotusAuraMeta;
+let lotusSparksGeo, lotusSparksMat, lotusSparksPoints;
+let lotusSparksPositions, lotusSparksColors, lotusSparksMeta;
+let lotusAshGeo, lotusAshMat, lotusAshPoints;
+let lotusAshPositions, lotusAshColors, lotusAshMeta;
+let lotusIllusionGeo, lotusIllusionMat, lotusIllusionPoints;
+let lotusIllusionPositions, lotusIllusionColors, lotusIllusionMeta;
+let lotusIllusionFadeTarget = 1.0, lotusIllusionFade = 1.0;
+let lotusBreathPhase = 0, lotusFloatY = 0;
+let lotusWispsGeo, lotusWispsMat, lotusWispsPoints;
+let lotusWispsPositions, lotusWispsColors, lotusWispsMeta;
+let lotusRunesGeo, lotusRunesMat, lotusRunesPoints;
+let lotusRunesPositions, lotusRunesColors, lotusRunesMeta;
+
+// ==================== LOTUS CHARGE/RELEASE STATE ====================
+let lotusChargeState = 'idle'; // idle, charging, release, freeze, heal, cooldown
+let lotusChargeLevel = 0;
+let lotusChargeTime = 0;
+let lotusReleaseTime = 0;
+let lotusReleaseDuration = 2.8;
+let lotusFreezeTime = 0;
+const LOTUS_FREEZE_DURATION = 0.8;
+let lotusHealTime = 0;
+const LOTUS_HEAL_DURATION = 1.5;
+let lotusShakeAmp = 0;
+let lotusTargetZoom = 8;
+let lotusCurrentZoom = 8;
+let lotusVignette = 0;
+let lotusFlashAlpha = 0;
+let lotusShockwaveActive = false;
+let lotusHeatWaveTime = 0;
+let lotusSmokeParticles = [];
+
+// ==================== SHATTER SCREEN EFFECT STATE ====================
+let shatterActive = false;
+let shatterCanvasEl, shatterCtx;
+let shatterCracks = [];
+let shatterFragments = [];
+let shatterTime = 0;
+const SHATTER_DURATION = 3.0;
+const SHATTER_MAX_DEPTH = 6;
+
+let lotusChargeSound = null;
+let lotusAudioCtx = null;
+let lotusChargeOsc = null;
+let lotusChargeGain = null;
+let lotusAudioInitialized = false;
+
+// ==================== MOK PHYSICS STATE ====================
+const PARTICLE_COUNT_MOK = 16000;
+let mokPositions, mokVelocities, mokTargets, mokColorsArr;
+let mokGeometry, mokMaterial, mokPoints;
+let mokActive = false;
+let mokGesture = 'open';
+let mokPrevGesture = 'open';
+let mokExplosionTimer = 0;
+let mokWindForce = { x: 0, y: 0, z: 0 };
+let mokDepthScale = 1.0;
+let mokTargetDepthScale = 1.0;
+let mokHandVelocity = 0;
+let mokPrevHandPos = { x: 0.5, y: 0.5 };
+let mokCanvasTextPositions = null;
+
+// ==================== THREE.JS SETUP ====================
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x0a0a0f, 0.00015);
+
+const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.5, 50);
+camera.position.set(0, 0.5, 8);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+container.appendChild(renderer.domElement);
+
+// Soft glow particle texture
+function createGlowTexture(color, size) {
+  const s = size || 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = s;
+  canvas.height = s;
+  const ctx = canvas.getContext('2d');
+  const half = s / 2;
+  const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.08, 'rgba(255,255,255,0.95)');
+  gradient.addColorStop(0.25, 'rgba(255,255,255,0.6)');
+  gradient.addColorStop(0.5, 'rgba(255,255,255,0.15)');
+  gradient.addColorStop(0.75, 'rgba(255,255,255,0.02)');
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, s, s);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+const glowTexture = createGlowTexture();
+
+// Particle geometry & material
+const geometry = new THREE.BufferGeometry();
+const positionsArr = new Float32Array(PARTICLE_COUNT * 3);
+const colorsArr = new Float32Array(PARTICLE_COUNT * 3);
+geometry.setAttribute('position', new THREE.BufferAttribute(positionsArr, 3));
+geometry.setAttribute('color', new THREE.BufferAttribute(colorsArr, 3));
+
+const material = new THREE.PointsMaterial({
+  size: particleSize,
+  map: glowTexture,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  depthTest: true,
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.9,
+});
+
+const points = new THREE.Points(geometry, material);
+scene.add(points);
+
+// Background stars
+const starsGeo = new THREE.BufferGeometry();
+const starsCount = 800;
+const starsPos = new Float32Array(starsCount * 3);
+for (let i = 0; i < starsCount; i++) {
+  starsPos[i * 3] = (Math.random() - 0.5) * 30;
+  starsPos[i * 3 + 1] = (Math.random() - 0.5) * 20;
+  starsPos[i * 3 + 2] = (Math.random() - 0.5) * 15 - 5;
+}
+starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
+const starsMat = new THREE.PointsMaterial({
+  size: 0.03,
+  color: 0xffffff,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  opacity: 0.5,
+  transparent: true,
+});
+const stars = new THREE.Points(starsGeo, starsMat);
+scene.add(stars);
+
+// ==================== LOTUS EXTERNAL PARTICLE SYSTEMS ====================
+function createExternalTexture() {
+  const s = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = s; canvas.height = s;
+  const ctx = canvas.getContext('2d');
+  const half = s / 2;
+  const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.05, 'rgba(255,255,255,0.9)');
+  gradient.addColorStop(0.2, 'rgba(255,255,255,0.5)');
+  gradient.addColorStop(0.5, 'rgba(255,255,255,0.1)');
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, s, s);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+const extGlowTex = createExternalTexture();
+
+function initLotusAura() {
+  if (lotusAuraPoints) { lotusAuraGeo.dispose(); lotusAuraMat.dispose(); scene.remove(lotusAuraPoints); }
+  lotusAuraGeo = new THREE.BufferGeometry();
+  lotusAuraPositions = new Float32Array(PARTICLE_COUNT_AURA * 3);
+  lotusAuraColors = new Float32Array(PARTICLE_COUNT_AURA * 3);
+  lotusAuraMeta = new Float32Array(PARTICLE_COUNT_AURA * 4); // phase, speed, amp, baseR
+  for (let i = 0; i < PARTICLE_COUNT_AURA; i++) {
+    const phi = Math.acos(2 * Math.random() - 1);
+    const theta = Math.random() * Math.PI * 2;
+    const r = 3.5 + Math.random() * 5.5;
+    lotusAuraPositions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+    lotusAuraPositions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+    lotusAuraPositions[i*3+2] = r * Math.cos(phi) * 0.4;
+    lotusAuraColors[i*3] = 0.5 + Math.random() * 0.3;
+    lotusAuraColors[i*3+1] = 0.05 + Math.random() * 0.15;
+    lotusAuraColors[i*3+2] = 0.3 + Math.random() * 0.4;
+    lotusAuraMeta[i*4] = Math.random() * Math.PI * 2;
+    lotusAuraMeta[i*4+1] = 0.3 + Math.random() * 1.5;
+    lotusAuraMeta[i*4+2] = r;
+    lotusAuraMeta[i*4+3] = r;
+  }
+  lotusAuraGeo.setAttribute('position', new THREE.BufferAttribute(lotusAuraPositions, 3));
+  lotusAuraGeo.setAttribute('color', new THREE.BufferAttribute(lotusAuraColors, 3));
+  lotusAuraMat = new THREE.PointsMaterial({
+    size: 0.08, map: extGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+    depthTest: true, vertexColors: true, transparent: true, opacity: 0.5,
+  });
+  lotusAuraPoints = new THREE.Points(lotusAuraGeo, lotusAuraMat);
+  lotusAuraPoints.visible = false;
+  scene.add(lotusAuraPoints);
+}
+
+function initLotusSparks() {
+  if (lotusSparksPoints) { lotusSparksGeo.dispose(); lotusSparksMat.dispose(); scene.remove(lotusSparksPoints); }
+  lotusSparksGeo = new THREE.BufferGeometry();
+  lotusSparksPositions = new Float32Array(PARTICLE_COUNT_SPARKS * 3);
+  lotusSparksColors = new Float32Array(PARTICLE_COUNT_SPARKS * 3);
+  lotusSparksMeta = new Float32Array(PARTICLE_COUNT_SPARKS * 4);
+  for (let i = 0; i < PARTICLE_COUNT_SPARKS; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 1.5 + Math.random() * 6;
+    const y = (Math.random() - 0.5) * 5;
+    lotusSparksPositions[i*3] = Math.cos(a) * r;
+    lotusSparksPositions[i*3+1] = y;
+    lotusSparksPositions[i*3+2] = Math.sin(a) * r * 0.4;
+    lotusSparksColors[i*3] = 0.8 + Math.random() * 0.2;
+    lotusSparksColors[i*3+1] = 0.15 + Math.random() * 0.4;
+    lotusSparksColors[i*3+2] = 0.02 + Math.random() * 0.2;
+    lotusSparksMeta[i*4] = Math.random() * Math.PI * 2;
+    lotusSparksMeta[i*4+1] = 0.5 + Math.random() * 3;
+    lotusSparksMeta[i*4+2] = r;
+    lotusSparksMeta[i*4+3] = y;
+  }
+  lotusSparksGeo.setAttribute('position', new THREE.BufferAttribute(lotusSparksPositions, 3));
+  lotusSparksGeo.setAttribute('color', new THREE.BufferAttribute(lotusSparksColors, 3));
+  lotusSparksMat = new THREE.PointsMaterial({
+    size: 0.04, map: extGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+    depthTest: true, vertexColors: true, transparent: true, opacity: 0.7,
+  });
+  lotusSparksPoints = new THREE.Points(lotusSparksGeo, lotusSparksMat);
+  lotusSparksPoints.visible = false;
+  scene.add(lotusSparksPoints);
+}
+
+function initLotusAsh() {
+  if (lotusAshPoints) { lotusAshGeo.dispose(); lotusAshMat.dispose(); scene.remove(lotusAshPoints); }
+  lotusAshGeo = new THREE.BufferGeometry();
+  lotusAshPositions = new Float32Array(PARTICLE_COUNT_ASH * 3);
+  lotusAshColors = new Float32Array(PARTICLE_COUNT_ASH * 3);
+  lotusAshMeta = new Float32Array(PARTICLE_COUNT_ASH * 4);
+  for (let i = 0; i < PARTICLE_COUNT_ASH; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 2 + Math.random() * 7;
+    lotusAshPositions[i*3] = Math.cos(a) * r;
+    lotusAshPositions[i*3+1] = -1.5 - Math.random() * 3;
+    lotusAshPositions[i*3+2] = Math.sin(a) * r * 0.4;
+    const v = 0.15 + Math.random() * 0.3;
+    lotusAshColors[i*3] = v * 0.8;
+    lotusAshColors[i*3+1] = v * 0.35;
+    lotusAshColors[i*3+2] = v * 0.15;
+    lotusAshMeta[i*4] = Math.random() * Math.PI * 2;
+    lotusAshMeta[i*4+1] = 0.15 + Math.random() * 0.6;
+    lotusAshMeta[i*4+2] = r;
+    lotusAshMeta[i*4+3] = lotusAshPositions[i*3+1];
+  }
+  lotusAshGeo.setAttribute('position', new THREE.BufferAttribute(lotusAshPositions, 3));
+  lotusAshGeo.setAttribute('color', new THREE.BufferAttribute(lotusAshColors, 3));
+  lotusAshMat = new THREE.PointsMaterial({
+    size: 0.06, map: extGlowTex, blending: THREE.AdditiveBlending, depthWrite: false,
+    depthTest: true, vertexColors: true, transparent: true, opacity: 0.45,
+  });
+  lotusAshPoints = new THREE.Points(lotusAshGeo, lotusAshMat);
+  lotusAshPoints.visible = false;
+  scene.add(lotusAshPoints);
+}
+
+// ==================== LOTUS ILLUSION/MIRAGE PARTICLE SYSTEM ====================
+// Multi-layer semi-transparent illusion particles surrounding the lotus
+// 5 layers of ghost afterimages: inner solid → mid hazy → outer fading
+function initIllusionSystem() {
+  if (lotusIllusionPoints) {
+    lotusIllusionGeo.dispose(); lotusIllusionMat.dispose();
+    scene.remove(lotusIllusionPoints);
+  }
+  lotusIllusionGeo = new THREE.BufferGeometry();
+  lotusIllusionPositions = new Float32Array(PARTICLE_COUNT_ILLUSION * 3);
+  lotusIllusionColors = new Float32Array(PARTICLE_COUNT_ILLUSION * 3);
+  // meta: [phase, speed, baseR, layerIndex, baseY, flowAngle]
+  lotusIllusionMeta = new Float32Array(PARTICLE_COUNT_ILLUSION * 6);
+
+  const layers = 5;
+  const perLayer = Math.floor(PARTICLE_COUNT_ILLUSION / layers);
+  const layerRadii = [1.2, 1.55, 1.9, 2.3, 2.75]; // multiplier of lotus radius
+  const layerThick = [0.15, 0.2, 0.28, 0.35, 0.45]; // shell thickness
+  const layerOpacity = [0.55, 0.4, 0.25, 0.15, 0.07]; // opacity per layer
+
+  for (let i = 0; i < PARTICLE_COUNT_ILLUSION; i++) {
+    const layerIdx = Math.min(layers - 1, Math.floor(i / perLayer));
+    const baseR = layerRadii[layerIdx] * 3.0; // base lotus radius ~3
+    const thick = layerThick[layerIdx];
+
+    // Distribution: thin shell with volumetric thickness
+    const phi = Math.acos(2 * Math.random() - 1);
+    const theta = Math.random() * Math.PI * 2;
+    const r = baseR + (Math.random() - 0.5) * thick * 4;
+
+    lotusIllusionPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    lotusIllusionPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    lotusIllusionPositions[i * 3 + 2] = r * Math.cos(phi) * 0.35; // flatten Z
+
+    // Colors: inner purple → outer gold-pink
+    const t = layerIdx / (layers - 1);
+    lotusIllusionColors[i * 3] = 0.35 - t * 0.1 + Math.random() * 0.15;      // R
+    lotusIllusionColors[i * 3 + 1] = 0.04 + t * 0.15 + Math.random() * 0.08;  // G
+    lotusIllusionColors[i * 3 + 2] = 0.4 + t * 0.15 + Math.random() * 0.2;    // B
+
+    // Metadata
+    lotusIllusionMeta[i * 6] = Math.random() * Math.PI * 2;    // phase
+    lotusIllusionMeta[i * 6 + 1] = 0.15 + Math.random() * 0.6; // orbit speed
+    lotusIllusionMeta[i * 6 + 2] = r;                           // base radius
+    lotusIllusionMeta[i * 6 + 3] = layerIdx;                    // layer index
+    lotusIllusionMeta[i * 6 + 4] = lotusIllusionPositions[i * 3 + 1]; // base Y
+    lotusIllusionMeta[i * 6 + 5] = theta;                       // flow angle
+  }
+
+  lotusIllusionGeo.setAttribute('position', new THREE.BufferAttribute(lotusIllusionPositions, 3));
+  lotusIllusionGeo.setAttribute('color', new THREE.BufferAttribute(lotusIllusionColors, 3));
+
+  lotusIllusionMat = new THREE.PointsMaterial({
+    size: 0.06,
+    map: extGlowTex,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: true,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.55,
+  });
+
+  lotusIllusionPoints = new THREE.Points(lotusIllusionGeo, lotusIllusionMat);
+  lotusIllusionPoints.visible = false;
+  scene.add(lotusIllusionPoints);
+}
+
+function updateIllusionSystem(time, intensity, chargeLevel, releaseProgress, fadeOverride) {
+  if (!lotusIllusionPoints || !lotusIllusionPoints.visible) return;
+
+  // Handle fade target
+  if (fadeOverride !== undefined) {
+    lotusIllusionFadeTarget = fadeOverride;
+  }
+  lotusIllusionFade += (lotusIllusionFadeTarget - lotusIllusionFade) * 0.06;
+  const currentFade = Math.max(0.001, lotusIllusionFade);
+
+  lotusIllusionMat.opacity = 0.55 * currentFade;
+
+  for (let i = 0; i < PARTICLE_COUNT_ILLUSION; i++) {
+    const phase = lotusIllusionMeta[i * 6];
+    const speed = lotusIllusionMeta[i * 6 + 1];
+    const baseR = lotusIllusionMeta[i * 6 + 2];
+    const layerIdx = lotusIllusionMeta[i * 6 + 3];
+    const baseY = lotusIllusionMeta[i * 6 + 4];
+    const flowAngle = lotusIllusionMeta[i * 6 + 5];
+    const ix = i * 3, iy = i * 3 + 1, iz = i * 3 + 2;
+
+    // Slow orbit around Y axis, speed varies by layer
+    const orbitSpeed = speed * (0.6 - layerIdx * 0.08);
+    const orbitAngle = flowAngle + time * orbitSpeed * 0.3;
+
+    // Gentle radius wobble
+    const rWobble = baseR + Math.sin(time * 1.5 + phase) * 0.4 + Math.cos(time * 2.3 + phase * 1.3) * 0.25;
+
+    // Gentle vertical float, different per layer
+    const yFloat = baseY + Math.sin(time * 0.7 + phase) * (0.3 + layerIdx * 0.15);
+
+    lotusIllusionPositions[ix] = Math.cos(orbitAngle) * rWobble;
+    lotusIllusionPositions[iy] = yFloat;
+    lotusIllusionPositions[iz] = Math.sin(orbitAngle) * rWobble * 0.35;
+
+    // Dynamic color based on intensity and layer
+    const layerOpacity = [0.55, 0.4, 0.25, 0.15, 0.07][Math.min(4, Math.floor(layerIdx))];
+    const shimmer = 0.6 + 0.4 * Math.sin(time * 8 + phase) * intensity;
+    lotusIllusionColors[ix] = Math.min(1, (0.3 + layerIdx * 0.04 + Math.random() * 0.06) * shimmer * currentFade * 2);
+    lotusIllusionColors[iy] = Math.min(1, (0.03 + layerIdx * 0.03 + Math.random() * 0.04) * shimmer * currentFade * 2);
+    lotusIllusionColors[iz] = Math.min(1, (0.35 + layerIdx * 0.05 + Math.random() * 0.08) * shimmer * currentFade * 2);
+
+    // Charge convergence: pull toward center
+    if (chargeLevel > 0.01) {
+      const dx = lotusIllusionPositions[ix];
+      const dy = lotusIllusionPositions[iy];
+      const dz = lotusIllusionPositions[iz];
+      const dist = Math.sqrt(dx*dx + dy*dy + dz*dz) + 0.01;
+      const pull = chargeLevel * 0.025;
+      lotusIllusionPositions[ix] -= (dx / dist) * pull * dist;
+      lotusIllusionPositions[iy] -= (dy / dist) * pull * dist;
+      lotusIllusionPositions[iz] -= (dz / dist) * pull * dist;
+    }
+
+    // Release explosion force
+    if (releaseProgress > 0.01 && !isNaN(releaseProgress)) {
+      const dx = lotusIllusionPositions[ix];
+      const dy = lotusIllusionPositions[iy];
+      const dz = lotusIllusionPositions[iz];
+      const dist = Math.sqrt(dx*dx + dy*dy + dz*dz) + 0.01;
+      const force = releaseProgress * 0.08;
+      lotusIllusionPositions[ix] += (dx / dist) * force * dist;
+      lotusIllusionPositions[iy] += (dy / dist) * force * dist;
+      lotusIllusionPositions[iz] += (dz / dist) * force * dist;
+    }
+  }
+
+  lotusIllusionGeo.attributes.position.needsUpdate = true;
+  lotusIllusionGeo.attributes.color.needsUpdate = true;
+}
+
+function showIllusionSystem(visible) {
+  if (lotusIllusionPoints) lotusIllusionPoints.visible = visible;
+  if (!visible) { lotusIllusionFade = 1.0; lotusIllusionFadeTarget = 1.0; }
+}
+
+
+function updateLotusAura(time, intensity, chargeLevel, releaseProgress) {
+  if (!lotusAuraPoints || !lotusAuraPoints.visible) return;
+  for (let i = 0; i < PARTICLE_COUNT_AURA; i++) {
+    const phase = lotusAuraMeta[i*4];
+    const speed = lotusAuraMeta[i*4+1];
+    const baseR = lotusAuraMeta[i*4+3];
+    const ix = i*3, iy = i*3+1, iz = i*3+2;
+
+    const orbA = time * speed * 0.4 + phase;
+    const wobble = baseR + Math.sin(time * 1.3 + phase) * 0.8;
+    lotusAuraPositions[ix] = Math.cos(orbA) * wobble;
+    lotusAuraPositions[iy] = Math.sin(time * 1.7 + phase) * 1.5;
+    lotusAuraPositions[iz] = Math.sin(orbA) * wobble * 0.35;
+
+    // Fade with intensity
+    const alpha = 0.15 + intensity * 0.35;
+    lotusAuraColors[ix] = (0.3 + Math.random() * 0.2) * alpha * 2;
+    lotusAuraColors[iy] = (0.02 + Math.random() * 0.08) * alpha * 2;
+    lotusAuraColors[iz] = (0.2 + Math.random() * 0.3) * alpha * 2;
+  }
+  lotusAuraGeo.attributes.position.needsUpdate = true;
+  lotusAuraGeo.attributes.color.needsUpdate = true;
+}
+
+function updateLotusSparks(time, intensity, chargeLevel, releaseProgress) {
+  if (!lotusSparksPoints || !lotusSparksPoints.visible) return;
+  for (let i = 0; i < PARTICLE_COUNT_SPARKS; i++) {
+    const phase = lotusSparksMeta[i*4];
+    const speed = lotusSparksMeta[i*4+1];
+    const baseR = lotusSparksMeta[i*4+2];
+    const baseY = lotusSparksMeta[i*4+3];
+    const ix = i*3, iy = i*3+1, iz = i*3+2;
+
+    const cycle = (time * speed + phase) % 3.5;
+    const a = phase * Math.PI * 2;
+    const r = baseR + Math.sin(time * 2 + phase) * 1.2;
+    lotusSparksPositions[ix] = Math.cos(a) * r;
+    lotusSparksPositions[iy] = baseY + cycle * 1.5 * intensity;
+    lotusSparksPositions[iz] = Math.sin(a) * r * 0.35;
+
+    const bright = 0.4 + intensity * 0.6;
+    lotusSparksColors[ix] = Math.min(1, (0.8 + Math.random() * 0.2) * bright);
+    lotusSparksColors[iy] = Math.min(1, (0.1 + Math.random() * 0.3) * bright);
+    lotusSparksColors[iz] = Math.min(1, (0.02 + Math.random() * 0.15) * bright);
+  }
+  lotusSparksGeo.attributes.position.needsUpdate = true;
+  lotusSparksGeo.attributes.color.needsUpdate = true;
+}
+
+function updateLotusAsh(time, intensity, chargeLevel, releaseProgress) {
+  if (!lotusAshPoints || !lotusAshPoints.visible) return;
+  for (let i = 0; i < PARTICLE_COUNT_ASH; i++) {
+    const phase = lotusAshMeta[i*4];
+    const speed = lotusAshMeta[i*4+1];
+    const baseR = lotusAshMeta[i*4+2];
+    const baseY = lotusAshMeta[i*4+3];
+    const ix = i*3, iy = i*3+1, iz = i*3+2;
+
+    const cycle = (time * speed + phase) % 5;
+    const a = phase * Math.PI * 2;
+    const r = baseR + Math.sin(time + phase) * 0.8;
+    lotusAshPositions[ix] = Math.cos(a) * r;
+    lotusAshPositions[iy] = baseY + cycle * 2.5 * (0.3 + releaseProgress * 0.7);
+    lotusAshPositions[iz] = Math.sin(a) * r * 0.35;
+
+    const v = 0.1 + (0.2 * intensity);
+    lotusAshColors[ix] = v * 0.7;
+    lotusAshColors[iy] = v * 0.3;
+    lotusAshColors[iz] = v * 0.1;
+  }
+  lotusAshGeo.attributes.position.needsUpdate = true;
+  lotusAshGeo.attributes.color.needsUpdate = true;
+}
+
+function updateAllExternalSystems(time, intensity, chargeLevel, releaseProgress) {
+  updateLotusAura(time, intensity, chargeLevel, releaseProgress);
+  updateLotusSparks(time, intensity, chargeLevel, releaseProgress);
+  updateLotusAsh(time, intensity, chargeLevel, releaseProgress);
+  // Illusion system gets charge/release progress for convergence/explosion
+  const illusRelease = releaseProgress > 0.01 ? releaseProgress : 0;
+  updateIllusionSystem(time, intensity, chargeLevel, illusRelease);
+}
+
+function showLotusExternalSystems(visible) {
+  if (lotusAuraPoints) lotusAuraPoints.visible = visible;
+  if (lotusSparksPoints) lotusSparksPoints.visible = visible;
+  if (lotusAshPoints) lotusAshPoints.visible = visible;
+  showIllusionSystem(visible);
+}
+
+function initAllExternalSystems() {
+  initLotusAura();
+  initLotusSparks();
+  initLotusAsh();
+  initIllusionSystem();
+}
+
+
+
+// Central ambient point light (doesn't affect PointsMaterial, but good for any mesh additions)
+const ambientLight = new THREE.AmbientLight(0x222244, 0.5);
+scene.add(ambientLight);
+
+// ==================== MODEL GENERATORS ====================
+function randomOnSphere(r) {
+  const phi = Math.acos(2 * Math.random() - 1);
+  const theta = Math.random() * Math.PI * 2;
+  return [
+    r * Math.sin(phi) * Math.cos(theta),
+    r * Math.sin(phi) * Math.sin(theta),
+    r * Math.cos(phi)
+  ];
+}
+
+function randomInSphere(r) {
+  const u = Math.random();
+  const [x, y, z] = randomOnSphere(1);
+  const rr = r * Math.cbrt(u);
+  return [x * rr, y * rr, z * rr];
+}
+
+function randomOnEllipsoid(rx, ry, rz) {
+  const [x, y, z] = randomOnSphere(1);
+  return [x * rx, y * ry, z * rz];
+}
+
+function randomInEllipsoid(rx, ry, rz) {
+  const [x, y, z] = randomInSphere(1);
+  return [x * rx, y * ry, z * rz];
+}
+
+function generateHeart(count) {
+  const arr = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const t = Math.random() * Math.PI * 2;
+    const s = 0.18;
+    // Heart parametric surface
+    const cx = 16 * Math.pow(Math.sin(t), 3);
+    const cy = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+    // Fill interior by random contraction from surface
+    const fill = 0.15 + Math.random() * 0.85;
+    // Add Z thickness
+    const z = (Math.random() - 0.5) * 4;
+    // Surface noise
+    const nx = (Math.random() - 0.5) * 0.8;
+    const ny = (Math.random() - 0.5) * 0.8;
+    arr[i * 3] = cx * s * fill + nx;
+    arr[i * 3 + 1] = cy * s * fill + ny;
+    arr[i * 3 + 2] = z * s;
+  }
+  return arr;
+}
+
+function generateFlower(count) {
+  const arr = new Float32Array(count * 3);
+  const outerCount = Math.floor(count * 0.55);
+  const innerCount = Math.floor(count * 0.3);
+  const centerCount = count - outerCount - innerCount;
+
+  let idx = 0;
+
+  // Outer petals - 6 petals
+  const petals = 6;
+  for (let i = 0; i < outerCount; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const r = Math.abs(Math.cos(petals * theta / 2)) * 2.5;
+    const spread = 0.2 + Math.random() * 0.6;
+    const x = r * Math.cos(theta) * spread;
+    const y = r * Math.sin(theta) * spread;
+    const z = (Math.random() - 0.5) * 0.8;
+    arr[idx++] = x;
+    arr[idx++] = y;
+    arr[idx++] = z;
+  }
+
+  // Inner petals - 3 petals, smaller
+  for (let i = 0; i < innerCount; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const r = Math.abs(Math.cos(3 * theta / 2)) * 1.2;
+    const spread = 0.3 + Math.random() * 0.5;
+    arr[idx++] = r * Math.cos(theta) * spread;
+    arr[idx++] = r * Math.sin(theta) * spread;
+    arr[idx++] = (Math.random() - 0.5) * 0.5;
+  }
+
+  // Center
+  for (let i = 0; i < centerCount; i++) {
+    const [x, y, z] = randomInSphere(0.35);
+    arr[idx++] = x;
+    arr[idx++] = y;
+    arr[idx++] = z * 0.5;
+  }
+
+  return arr;
+}
+
+function generateSaturn(count) {
+  const arr = new Float32Array(count * 3);
+  const sphereCount = Math.floor(count * 0.38);
+  const ringCount = count - sphereCount;
+
+  let idx = 0;
+
+  // Planet sphere
+  for (let i = 0; i < sphereCount; i++) {
+    const [x, y, z] = randomOnSphere(1.4);
+    arr[idx++] = x;
+    arr[idx++] = y;
+    arr[idx++] = z * 0.85;
+  }
+
+  // Rings - multiple ring layers
+  const ringLayers = 3;
+  const perLayer = Math.floor(ringCount / ringLayers);
+  for (let layer = 0; layer < ringLayers; layer++) {
+    const baseR = 2.0 + layer * 0.55;
+    const count = layer === ringLayers - 1 ? ringCount - perLayer * (ringLayers - 1) : perLayer;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = baseR + (Math.random() - 0.5) * 0.4;
+      const x = r * Math.cos(angle);
+      const z = r * Math.sin(angle) * 0.25;
+      const y = (Math.random() - 0.5) * 0.25;
+      arr[idx++] = x;
+      arr[idx++] = y;
+      arr[idx++] = z;
+    }
+  }
+
+  return arr;
+}
+
+function generateBuddha(count) {
+  const arr = new Float32Array(count * 3);
+
+  // Proportions for seated meditation figure
+  const parts = [
+    { name: 'head',       weight: 0.12, fn: () => { const p = randomOnSphere(0.65); return [p[0], p[1] + 2.8, p[2] * 0.7]; } },
+    { name: 'neck',       weight: 0.03, fn: () => { const p = randomInEllipsoid(0.3, 0.2, 0.25); return [p[0], p[1] + 2.3, p[2]]; } },
+    { name: 'torso',      weight: 0.22, fn: () => { const p = randomInEllipsoid(0.85, 1.1, 0.5); return [p[0], p[1] + 1.3, p[2]]; } },
+    { name: 'leftThigh',  weight: 0.1,  fn: () => { const p = randomInEllipsoid(0.55, 0.3, 0.5); return [p[0] - 0.45, p[1] + 0.15, p[2] + 0.2]; } },
+    { name: 'rightThigh', weight: 0.1,  fn: () => { const p = randomInEllipsoid(0.55, 0.3, 0.5); return [p[0] + 0.45, p[1] + 0.15, p[2] + 0.2]; } },
+    { name: 'leftShin',   weight: 0.08, fn: () => { const p = randomInEllipsoid(0.4, 0.25, 0.35); return [p[0] - 0.3, p[1] - 0.35, p[2] + 0.5]; } },
+    { name: 'rightShin',  weight: 0.08, fn: () => { const p = randomInEllipsoid(0.4, 0.25, 0.35); return [p[0] + 0.3, p[1] - 0.35, p[2] + 0.5]; } },
+    { name: 'leftUpperArm',  weight: 0.07, fn: () => { const p = randomInEllipsoid(0.25, 0.5, 0.2); return [p[0] - 1.05, p[1] + 1.6, p[2]]; } },
+    { name: 'rightUpperArm', weight: 0.07, fn: () => { const p = randomInEllipsoid(0.25, 0.5, 0.2); return [p[0] + 1.05, p[1] + 1.6, p[2]]; } },
+    { name: 'leftForearm',  weight: 0.06, fn: () => { const p = randomInEllipsoid(0.35, 0.2, 0.18); return [p[0] - 0.6, p[1] + 0.75, p[2] + 0.3]; } },
+    { name: 'rightForearm', weight: 0.06, fn: () => { const p = randomInEllipsoid(0.35, 0.2, 0.18); return [p[0] + 0.6, p[1] + 0.75, p[2] + 0.3]; } },
+    { name: 'base',        weight: 0.01, fn: () => { const p = randomInEllipsoid(1.0, 0.15, 0.6); return [p[0], p[1] - 0.7, p[2]]; } },
+  ];
+
+  const totalW = parts.reduce((s, p) => s + p.weight, 0);
+  let idx = 0;
+  for (const part of parts) {
+    const n = Math.floor(count * (part.weight / totalW));
+    for (let i = 0; i < n && idx < count * 3; i++) {
+      const [x, y, z] = part.fn();
+      arr[idx++] = x;
+      arr[idx++] = y;
+      arr[idx++] = z;
+    }
+  }
+  // Fill remaining
+  while (idx < count * 3) {
+    const [x, y, z] = randomInEllipsoid(0.85, 1.1, 0.5);
+    arr[idx++] = x;
+    arr[idx++] = y + 1.3;
+    arr[idx++] = z;
+  }
+
+  return arr;
+}
+
+function generateFireworks(count) {
+  const arr = new Float32Array(count * 3);
+  const burstCenters = 4;
+  const perBurst = Math.floor(count / burstCenters);
+
+  // Define burst centers
+  const centers = [];
+  for (let b = 0; b < burstCenters; b++) {
+    centers.push([
+      (Math.random() - 0.5) * 3.5,
+      (Math.random() - 0.5) * 3,
+      (Math.random() - 0.5) * 2
+    ]);
+  }
+
+  for (let i = 0; i < count; i++) {
+    const ci = Math.floor(i / perBurst) % burstCenters;
+    const c = centers[ci];
+    const r = 0.3 + Math.random() * 1.8;
+    const [dx, dy, dz] = randomOnSphere(1);
+    arr[i * 3] = c[0] + dx * r;
+    arr[i * 3 + 1] = c[1] + dy * r;
+    arr[i * 3 + 2] = c[2] + dz * r;
+  }
+
+  return arr;
+}
+
+// ==================== XIAO YAN LOTUS GENERATOR (ULTRA-DENSE 100+ LAYERS) ====================
+// Zone 1: Inner micro-petals (deep purple) - 8 layers, 15-25 petals each, tight wrap
+// Zone 2: Middle dense petals (dark purple-black) - 25 layers, 25-40 petals each
+// Zone 3: Outer flame petals (red-orange lava) - 18 layers, 18-30 petals each
+// Zone 4: Extended scattered petals - 12 layers, 12-20 petals each
+// Plus: core, runes, edge gilding, wisps, total ~50K particles
+
+function generateXiaoYanLotus(count) {
+  const N = count;
+
+  // Quotas
+  const coreN = Math.floor(N * 0.08);
+  const runeN = Math.floor(N * 0.04);
+  const innerN = Math.floor(N * 0.20);
+  const middleN = Math.floor(N * 0.28);
+  const outerN = Math.floor(N * 0.24);
+  const extendN = Math.floor(N * 0.08);
+  const wispN = Math.floor(N * 0.05);
+  const edgeGildN = N - coreN - runeN - innerN - middleN - outerN - extendN - wispN;
+
+  lotusTypes = new Uint8Array(N);
+  lotusBaseX = new Float32Array(N);
+  lotusBaseY = new Float32Array(N);
+  lotusBaseZ = new Float32Array(N);
+  lotusPhases = new Float32Array(N);
+  lotusSpeeds = new Float32Array(N);
+  lotusAmps = new Float32Array(N);
+  lotusPetalLayer = new Uint8Array(N);
+  lotusPetalAngle = new Float32Array(N);
+
+  const arr = new Float32Array(N * 3);
+  let idx = 0, pi = 0;
+
+  function add(x, y, z, type, phase, speed, amp, layer, angle) {
+    if (pi >= N) return;
+    arr[idx++] = x; arr[idx++] = y; arr[idx++] = z;
+    lotusTypes[pi] = type;
+    lotusBaseX[pi] = x; lotusBaseY[pi] = y; lotusBaseZ[pi] = z;
+    lotusPhases[pi] = phase; lotusSpeeds[pi] = speed; lotusAmps[pi] = amp;
+    lotusPetalLayer[pi] = layer || 0; lotusPetalAngle[pi] = angle || 0;
+    pi++;
+  }
+
+  // Simple perlin-like noise for torn flame edges
+  function flameNoise(x, y, seed) {
+    const n = Math.sin(x * 12.9898 + y * 78.233 + seed * 45.164) * 43758.5453;
+    return (n - Math.floor(n)) * 2 - 1;
+  }
+
+  // Generate a 3D volumetric petal with torn edges and curvature
+  function volPetal(angle, tiltAngle, length, maxWidth, thickness, layerY, opts) {
+    const t = Math.random();
+    const w = (Math.random() - 0.5) * 2;
+    const d = (Math.random() - 0.5) * 2;
+    const curve = (opts && opts.curve) || 0.55;
+    const curlVar = (opts && opts.curlVar) || 0; // natural curl variation
+    const edgeTear = (opts && opts.edgeTear) || 0.12;
+    const twist = (opts && opts.twist) || 0;
+    const seed = (opts && opts.seed) || 0;
+
+    // Width with tapering: widest at 30-40%, tapers to both ends
+    const widthCurve = Math.sin(t * Math.PI) * (1 - Math.pow(Math.abs(t - 0.35) * 1.6, 1.5));
+    const curW = Math.max(0.02, widthCurve) * maxWidth * 0.5;
+
+    // Thickness follows width, thinner at edges
+    const thickCurve = widthCurve * (1 - Math.abs(w) * 0.8);
+    const curThick = Math.max(0.01, thickCurve) * thickness * 0.5;
+
+    // Edge tearing: more tear near edges (|w| close to 1) and near tip (t close to 1)
+    const edgeFactor = Math.abs(w) * (1 - Math.abs(w)) * 1.5 + t * 0.3;
+    const tearAmount = edgeTear * edgeFactor * flameNoise(t * 5 + seed, w * 3 + seed, seed);
+    const tearWidth = edgeTear * 0.3 * flameNoise(w * 7, t * 7, seed + 1);
+
+    // Radial distance with curvature
+    const r = t * length * Math.sin(tiltAngle);
+    // Height with curvature control
+    const curlAdj = curve + curlVar * Math.sin(t * Math.PI * 2.5) * 0.08;
+    const y = Math.pow(t, Math.max(0.1, curlAdj)) * length * Math.cos(tiltAngle) + layerY;
+
+    // Twist: rotate the petal slightly as it extends
+    const twistAngle = twist * Math.sin(t * Math.PI) * 0.3;
+    const effAngle = angle + twistAngle;
+
+    // Width offset along perpendicular, with tear displacement
+    const wo = w * curW + tearWidth * maxWidth * 0.3;
+    const perpX = Math.cos(effAngle + Math.PI / 2);
+    const perpZ = Math.sin(effAngle + Math.PI / 2);
+    let px = r * Math.cos(effAngle) + wo * perpX;
+    let pz = r * Math.sin(effAngle) + wo * perpZ;
+
+    // Tear displacement along radial direction
+    px += tearAmount * Math.cos(effAngle) * maxWidth * 0.15;
+    pz += tearAmount * Math.sin(effAngle) * maxWidth * 0.15;
+
+    // Thickness offset
+    const normX = Math.cos(effAngle) * Math.sin(tiltAngle);
+    const normZ = Math.sin(effAngle) * Math.sin(tiltAngle);
+    const normY = Math.cos(tiltAngle) * (0.3 + Math.random() * 0.2);
+    px += d * curThick * normX;
+    pz += d * curThick * normZ;
+    const py = y + d * curThick * normY;
+
+    return [px, py, pz];
+  }
+
+  // ===== ZONE 1: INNER MICRO-PETALS (deep purple, tightly wrapped) =====
+  const innerLayers = 8;
+  for (let layer = 0; layer < innerLayers && pi < innerN; layer++) {
+    const petalsInLayer = 15 + layer * 3;
+    const layerAngle = layer * 0.15;
+    const tilt = 0.15 + layer * 0.035;
+    const len = 1.6 + layer * 0.18;
+    const wid = 0.45 + layer * 0.06;
+    const thick = 0.2 + layer * 0.04;
+    const yBase = 0.45 + layer * 0.02;
+    const partPerPetal = Math.floor(innerN / innerLayers / petalsInLayer);
+    for (let p = 0; p < petalsInLayer && pi < innerN; p++) {
+      const a = (p / petalsInLayer) * Math.PI * 2 + layerAngle;
+      for (let j = 0; j < partPerPetal && pi < innerN; j++) {
+        const [px, py, pz] = volPetal(a, tilt, len, wid, thick, yBase, { curve: 0.7, edgeTear: 0.03, twist: 0.08, curlVar: Math.random()*0.3, seed: layer * 100 + p });
+        add(px, py, pz, 0, Math.random() * Math.PI * 2, 0, 0, layer, a);
+      }
+    }
+  }
+
+  // ===== ZONE 2: MIDDLE DENSE PETALS (dark purple-black, staggered overlap) =====
+  const midLayers = 25;
+  for (let layer = 0; layer < midLayers && pi < innerN + middleN; layer++) {
+    const petalsInLayer = 25 + layer * 2;
+    const layerAngle = layer * 0.08 + (layer % 3) * 0.12;
+    const tilt = 0.42 + layer * 0.032;
+    const len = 2.3 + layer * 0.08;
+    const wid = 0.7 + layer * 0.03;
+    const thick = 0.28 + layer * 0.006;
+    const yBase = 0.2 - layer * 0.02;
+    const partPerPetal = Math.floor(middleN / midLayers / petalsInLayer);
+    for (let p = 0; p < petalsInLayer && pi < innerN + middleN; p++) {
+      const a = (p / petalsInLayer) * Math.PI * 2 + layerAngle;
+      for (let j = 0; j < partPerPetal && pi < innerN + middleN; j++) {
+        const [px, py, pz] = volPetal(a, tilt, len, wid, thick, yBase, { curve: 0.58, edgeTear: 0.08, twist: 0.12, curlVar: Math.random()*0.4, seed: layer * 200 + p });
+        add(px, py, pz, 1, Math.random() * Math.PI * 2, 0, 0, layer + 10, a);
+      }
+    }
+  }
+
+  // ===== ZONE 3: OUTER FLAME PETALS (red-orange lava, wide sweeping) =====
+  const outerLayers = 18;
+  const z3Start = innerN + middleN;
+  for (let layer = 0; layer < outerLayers && pi < z3Start + outerN; layer++) {
+    const petalsInLayer = 18 + layer;
+    const layerAngle = layer * 0.1 + (layer % 5) * 0.07;
+    const tilt = 0.85 + layer * 0.03;
+    const len = 3.2 + layer * 0.1;
+    const wid = 1.0 + layer * 0.04;
+    const thick = 0.35 + layer * 0.008;
+    const yBase = -0.15 - layer * 0.025;
+    const partPerPetal = Math.floor(outerN / outerLayers / petalsInLayer);
+    for (let p = 0; p < petalsInLayer && pi < z3Start + outerN; p++) {
+      const a = (p / petalsInLayer) * Math.PI * 2 + layerAngle;
+      for (let j = 0; j < partPerPetal && pi < z3Start + outerN; j++) {
+        const [px, py, pz] = volPetal(a, tilt, len, wid, thick, yBase, { curve: 0.48, edgeTear: 0.18, twist: 0.18, curlVar: Math.random()*0.5, seed: layer * 300 + p });
+        add(px, py, pz, 2, Math.random() * Math.PI * 2, 0, 0, layer + 40, a);
+      }
+    }
+  }
+
+  // ===== ZONE 4: EXTENDED SCATTERED PETALS (large, irregular, flying) =====
+  const z4Start = z3Start + outerN;
+  const extLayers = 12;
+  for (let layer = 0; layer < extLayers && pi < z4Start + extendN; layer++) {
+    const petalsInLayer = 10 + layer;
+    const layerAngle = layer * 0.18;
+    const tilt = 1.1 + layer * 0.025;
+    const len = 3.8 + layer * 0.22;
+    const wid = 1.2 + layer * 0.06;
+    const thick = 0.3 + layer * 0.006;
+    const yBase = -0.4 - layer * 0.03;
+    const partPerPetal = Math.floor(extendN / extLayers / petalsInLayer);
+    for (let p = 0; p < petalsInLayer && pi < z4Start + extendN; p++) {
+      const a = (p / petalsInLayer) * Math.PI * 2 + layerAngle + layer * 0.1;
+      for (let j = 0; j < partPerPetal && pi < z4Start + extendN; j++) {
+        const [px, py, pz] = volPetal(a, tilt, len, wid, thick, yBase, { curve: 0.42, edgeTear: 0.28, twist: 0.25, curlVar: Math.random()*0.55, seed: layer * 400 + p });
+        add(px, py, pz, 3, Math.random() * Math.PI * 2, 0, 0, layer + 60, a);
+      }
+    }
+  }
+
+  // ===== CORE (ultra-dense glowing sphere) =====
+  const coreEnd = pi + coreN;
+  while (pi < coreEnd) {
+    const phi = Math.acos(2 * Math.random() - 1);
+    const theta = Math.random() * Math.PI * 2;
+    const r = 0.32 * Math.cbrt(Math.random());
+    const x = r * Math.sin(phi) * Math.cos(theta);
+    const y = r * Math.sin(phi) * Math.sin(theta) + 0.32;
+    const z = r * Math.cos(phi) * 0.55;
+    add(x, y, z, 10, Math.random() * Math.PI * 2, 4 + Math.random() * 8, 0.25 + Math.random() * 0.35, 0, 0);
+  }
+
+  // ===== GOLDEN RUNE SPIRALS + ENERGY RINGS =====
+  const runeEnd = pi + runeN;
+  // Multi-spiral runes
+  const spirals = 6;
+  const perSpiral = Math.floor(runeN * 0.6 / spirals);
+  for (let s = 0; s < spirals && pi < runeEnd; s++) {
+    const baseR = 1.2 + s * 0.35;
+    const spiralH = 4.0;
+    const baseY = -1.0;
+    for (let j = 0; j < perSpiral && pi < runeEnd; j++) {
+      const t = j / perSpiral;
+      const angle = t * Math.PI * 7 + s * Math.PI * 0.4;
+      const wobble = baseR + Math.sin(t * Math.PI * 5) * 0.35 + Math.cos(t * 12) * 0.15;
+      add(Math.cos(angle) * wobble, baseY + t * spiralH, Math.sin(angle) * wobble * 0.3,
+        11, Math.random() * Math.PI * 2, 0.6 + Math.random() * 2.2, wobble, 0, angle);
+    }
+  }
+  // Horizontal energy rings
+  const ringCount = 4;
+  const perRing = Math.floor(runeN * 0.4 / ringCount);
+  for (let r = 0; r < ringCount && pi < runeEnd; r++) {
+    const ringR = 1.4 + r * 0.6;
+    const ringY = -0.3 + r * 0.55;
+    for (let j = 0; j < perRing && pi < runeEnd; j++) {
+      const angle = (j / perRing) * Math.PI * 2;
+      const rr = ringR + (Math.random() - 0.5) * 0.2;
+      add(Math.cos(angle) * rr, ringY + (Math.random() - 0.5) * 0.12, Math.sin(angle) * rr * 0.3,
+        12, Math.random() * Math.PI * 2, 1.2 + Math.random() * 2.5, ringR, 0, angle);
+    }
+  }
+
+  // ===== EDGE GILDING (bright particles on petal edges/ridges) =====
+  const gildEnd = pi + edgeGildN;
+  while (pi < gildEnd) {
+    const zone = Math.random() < 0.15 ? 0 : (Math.random() < 0.45 ? 1 : 2);
+    const zDefs = [
+      { layers: innerLayers, tiltBase: 0.15, lenBase: 1.6, widBase: 0.45, yBase: 0.45 },
+      { layers: midLayers, tiltBase: 0.42, lenBase: 2.3, widBase: 0.7, yBase: 0.2 },
+      { layers: outerLayers, tiltBase: 0.85, lenBase: 3.2, widBase: 1.0, yBase: -0.15 },
+    ];
+    const zd = zDefs[zone];
+    const l = Math.floor(Math.random() * zd.layers);
+    const tilt = zd.tiltBase + l * 0.032;
+    const len = zd.lenBase + l * 0.09;
+    const wid = zd.widBase + l * 0.04;
+    const yB = zd.yBase - l * 0.025;
+    const a = Math.random() * Math.PI * 2;
+    // Place on edge: t between 0.2-0.75, |w| close to 1
+    const t = 0.2 + Math.random() * 0.55;
+    const w = (Math.random() > 0.5 ? 1 : -1) * (0.75 + Math.random() * 0.25);
+    const wCurve = Math.sin(t * Math.PI) * (1 - Math.pow(Math.abs(t - 0.35) * 1.6, 1.5));
+    const curW = Math.max(0.02, wCurve) * wid * 0.5;
+    const r = t * len * Math.sin(tilt);
+    const y = Math.pow(t, 0.52) * len * Math.cos(tilt) + yB;
+    const wo = w * curW;
+    add(r * Math.cos(a) + wo * Math.cos(a + Math.PI / 2), y,
+      r * Math.sin(a) + wo * Math.sin(a + Math.PI / 2),
+      6, Math.random() * Math.PI * 2, 0, 0, 0, a);
+  }
+
+  // ===== FIRE WISPS (flowing between petals, filling gaps) =====
+  const wispEnd = pi + wispN;
+  while (pi < wispEnd) {
+    const zone = Math.floor(Math.random() * 3);
+    const zd = [
+      { tiltB: 0.15, lenB: 1.6, widB: 0.45, yB: 0.45, layers: innerLayers },
+      { tiltB: 0.42, lenB: 2.3, widB: 0.7, yB: 0.2, layers: midLayers },
+      { tiltB: 0.85, lenB: 3.2, widB: 1.0, yB: -0.15, layers: outerLayers },
+    ][zone];
+    const l = Math.floor(Math.random() * zd.layers);
+    const tilt = zd.tiltB + l * 0.032;
+    const len = zd.lenB + l * 0.09;
+    const wid = zd.widB + l * 0.04;
+    const yB = zd.yB - l * 0.025;
+    const a = Math.random() * Math.PI * 2;
+    const t = Math.random() * 0.7;
+    const wCurve = Math.sin(t * Math.PI) * (1 - Math.pow(Math.abs(t - 0.35) * 1.6, 1.5));
+    const curW = Math.max(0.02, wCurve) * wid * 0.5;
+    const r = t * len * Math.sin(tilt);
+    const baseY = Math.pow(t, 0.55) * len * Math.cos(tilt) + yB;
+    // Wisp is between petals, slightly offset
+    const wo = (Math.random() - 0.5) * 2.5 * curW;
+    add(r * Math.cos(a) + wo * Math.cos(a + Math.PI / 2),
+      baseY + (Math.random() - 0.5) * 0.3,
+      r * Math.sin(a) + wo * Math.sin(a + Math.PI / 2),
+      7, Math.random() * Math.PI * 2, 0.8 + Math.random() * 3, 1.0 + Math.random() * 3, 0, a);
+  }
+
+  // Fill remaining slots with core particles
+  while (pi < N) {
+    const [cx, cy, cz] = (function(r) {
+      const u = Math.random();
+      const phi = Math.acos(2 * Math.random() - 1);
+      const theta = Math.random() * Math.PI * 2;
+      const rr = r * Math.cbrt(u);
+      return [rr * Math.sin(phi) * Math.cos(theta), rr * Math.sin(phi) * Math.sin(theta), rr * Math.cos(phi)];
+    })(0.4);
+    add(cx, cy + 0.32, cz * 0.5, 10, Math.random() * Math.PI * 2, 2 + Math.random() * 4, 0.2 + Math.random() * 0.3, 0, 0);
+  }
+
+  return arr;
+}
+
+// ==================== LOTUS PARTICLE UPDATE ====================
+function updateLotusParticles(time, intensity) {
+  const pos = geometry.attributes.position.array;
+  const isRelease = lotusChargeState === 'release';
+  const isFreeze = lotusChargeState === 'freeze';
+  const isHeal = lotusChargeState === 'heal';
+  const releaseP = isRelease ? Math.min(lotusReleaseTime / 2.0, 1) : 0;
+  const isCharging = lotusChargeState === 'charging';
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const type = lotusTypes[i];
+    const phase = lotusPhases[i];
+    const speed = lotusSpeeds[i];
+    const amp = lotusAmps[i];
+    const bx = lotusBaseX[i], by = lotusBaseY[i], bz = lotusBaseZ[i];
+    const ix = i * 3, iy = i * 3 + 1, iz = i * 3 + 2;
+    const layer = lotusPetalLayer[i];
+
+    // Charge convergence factor
+    const conv = isCharging ? lotusChargeLevel : 0;
+    // Release explosion factor
+    const explF = isRelease ? Math.max(0, 1 - releaseP) : 0;
+
+    switch (type) {
+      case 0: // Inner petals - subtle shimmer with layer-dependent frequency
+        const ifl = 0.03 * intensity * (1 + (layer % 5) * 0.3);
+        pos[ix] = bx + Math.sin(time * 3.5 + phase + layer * 0.3) * ifl;
+        pos[iy] = by + Math.cos(time * 2.8 + phase + layer * 0.2) * ifl * 0.7;
+        pos[iz] = bz + Math.sin(time * 3.0 + phase + layer * 0.25) * ifl;
+        break;
+
+      case 1: // Middle petals - stronger flutter, staggered by layer
+        const mfl = 0.06 * intensity * (1 + (layer % 8) * 0.25);
+        pos[ix] = bx + Math.sin(time * 4.2 + phase + layer * 0.2) * mfl;
+        pos[iy] = by + Math.cos(time * 3.5 + phase + layer * 0.15) * mfl * 0.8;
+        pos[iz] = bz + Math.sin(time * 3.8 + phase + layer * 0.18) * mfl;
+        break;
+
+      case 2: // Outer petals - dramatic flame movement
+        const ofl = 0.1 * intensity * (1 + (layer % 12) * 0.2);
+        pos[ix] = bx + Math.sin(time * 5 + phase + layer * 0.15) * ofl;
+        pos[iy] = by + Math.cos(time * 4.2 + phase + layer * 0.1) * ofl * 0.9;
+        pos[iz] = bz + Math.sin(time * 4.5 + phase + layer * 0.12) * ofl;
+        break;
+
+      case 3: // Extended petals - slow, wide sweeping motion
+        const efl = 0.14 * intensity;
+        pos[ix] = bx + Math.sin(time * 2.5 + phase) * efl * 1.3;
+        pos[iy] = by + Math.cos(time * 1.8 + phase) * efl;
+        pos[iz] = bz + Math.sin(time * 2.2 + phase) * efl * 0.8;
+        break;
+
+      case 6: // Edge gilding - bright sparkle
+        const gl = 1 + Math.sin(time * 12 + phase) * 0.1 * intensity;
+        pos[ix] = bx * gl;
+        pos[iy] = by * gl;
+        pos[iz] = bz * gl;
+        break;
+
+      case 7: // Fire wisps - rise through petals
+        const wcycle = (time * speed + phase) % 3.2;
+        pos[ix] = bx + Math.sin(time * 6 + phase) * 0.2 * intensity;
+        pos[iy] = by + wcycle * amp * intensity * 0.7;
+        pos[iz] = bz + Math.cos(time * 5 + phase) * 0.2 * intensity;
+        break;
+
+      case 10: // Core - intense multi-frequency pulse
+        const pulse = 1 + Math.sin(time * 6.5 + phase) * 0.45 * intensity
+                       + Math.sin(time * 9.5 + phase * 1.7) * 0.25 * intensity
+                       + Math.cos(time * 14 + phase) * 0.12 * intensity;
+        pos[ix] = bx * pulse;
+        pos[iy] = by * pulse;
+        pos[iz] = bz * pulse;
+        break;
+
+      case 11: // Golden runes - complex 3D CCW spiral
+        const orbA = -time * speed * 0.6 + phase;
+        const orbR = amp + Math.sin(time * 2.2 + phase) * 0.5 * intensity
+                     + Math.cos(time * 3.5 + phase * 0.7) * 0.25;
+        pos[ix] = Math.cos(orbA) * orbR;
+        pos[iy] = by + Math.sin(time * 2.5 + phase) * 0.4 * intensity;
+        pos[iz] = Math.sin(orbA) * orbR * 0.3;
+        break;
+
+      case 12: // Energy rings - horizontal orbital
+        const ringA = time * speed * 0.5 + phase;
+        const ringR = amp + Math.sin(time * 1.5 + phase) * 0.15;
+        pos[ix] = Math.cos(ringA) * ringR;
+        pos[iy] = by + Math.sin(time * 3 + phase) * 0.06;
+        pos[iz] = Math.sin(ringA) * ringR * 0.3;
+        break;
+
+      default:
+        pos[ix] = bx; pos[iy] = by; pos[iz] = bz;
+    }
+
+    // Apply charge convergence
+    if (conv > 0.001) {
+      const dx = pos[ix], dy = pos[iy] - 0.32, dz = pos[iz];
+      const dist = Math.sqrt(dx*dx + dy*dy + dz*dz) + 0.001;
+      const pull = conv * 0.03 * (1 + intensity);
+      pos[ix] -= (dx / dist) * pull * dist;
+      pos[iy] -= (dy / dist) * pull * dist;
+      pos[iz] -= (dz / dist) * pull * dist;
+    }
+
+    // Apply release explosion force
+    if (explF > 0.001 && !isFreeze) {
+      const dx = pos[ix], dy = pos[iy] - 0.32, dz = pos[iz];
+      const dist = Math.sqrt(dx*dx + dy*dy + dz*dz) + 0.001;
+      const force = explF * 0.12 * (1 + Math.random() * 0.3);
+      pos[ix] += (dx / dist) * force * dist;
+      pos[iy] += (dy / dist) * force * dist;
+      pos[iz] += (dz / dist) * force * dist;
+    }
+  }
+
+  geometry.attributes.position.needsUpdate = true;
+}
+
+// ==================== MOK: CANVAS TEXT GENERATOR ====================
+function generateMokTextPositions() {
+  if (mokCanvasTextPositions) return mokCanvasTextPositions;
+  const canvas = document.createElement('canvas');
+  canvas.width = 360;
+  canvas.height = 160;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 56px "PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('我是 Mok', 180, 80);
+  const imageData = ctx.getImageData(0, 0, 360, 160);
+  const pts = [];
+  const step = 2;
+  for (let y = 0; y < 160; y += step) {
+    for (let x = 0; x < 360; x += step) {
+      const idx = (y * 360 + x) * 4;
+      if (imageData.data[idx + 3] > 100) {
+        pts.push((x - 180) / 180 * 4.5, (80 - y) / 80 * 2.0, (Math.random() - 0.5) * 0.3);
+      }
+    }
+  }
+  while (pts.length < PARTICLE_COUNT_MOK * 3) {
+    const bi = Math.floor(Math.random() * (pts.length / 3)) * 3;
+    pts.push(pts[bi] + (Math.random() - 0.5) * 0.18, pts[bi + 1] + (Math.random() - 0.5) * 0.18, pts[bi + 2] + (Math.random() - 0.5) * 0.1);
+  }
+  mokCanvasTextPositions = new Float32Array(pts.slice(0, PARTICLE_COUNT_MOK * 3));
+  return mokCanvasTextPositions;
+}
+
+// ==================== MOK: TARGET GENERATORS ====================
+function generateMokTargets(gesture) {
+  const targets = new Float32Array(PARTICLE_COUNT_MOK * 3);
+  const N = PARTICLE_COUNT_MOK;
+
+  switch (gesture) {
+    case 'open': // Sphere
+      for (let i = 0; i < N; i++) {
+        const phi = Math.acos(2 * Math.random() - 1);
+        const theta = Math.random() * Math.PI * 2;
+        const r = 2.0;
+        targets[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        targets[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        targets[i * 3 + 2] = r * Math.cos(phi);
+      }
+      break;
+
+    case 'scissors': { // "我是 Mok" text
+      const textPts = generateMokTextPositions();
+      for (let i = 0; i < N; i++) {
+        targets[i * 3] = textPts[i * 3];
+        targets[i * 3 + 1] = textPts[i * 3 + 1];
+        targets[i * 3 + 2] = textPts[i * 3 + 2];
+      }
+      break;
+    }
+
+    case 'fist': // Torus ring
+      const R = 2.3, r = 0.5;
+      for (let i = 0; i < N; i++) {
+        const u = Math.random() * Math.PI * 2;
+        const v = Math.random() * Math.PI * 2;
+        targets[i * 3] = (R + r * Math.cos(v)) * Math.cos(u);
+        targets[i * 3 + 1] = (R + r * Math.cos(v)) * Math.sin(u);
+        targets[i * 3 + 2] = r * Math.sin(v);
+      }
+      break;
+
+    case 'index': // 5-pointed star
+      const starPts = 5;
+      const outerR = 2.5, innerR = 1.05;
+      for (let i = 0; i < N; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const segAngle = (Math.PI * 2) / (starPts * 2);
+        const segIdx = Math.floor(angle / segAngle);
+        const isOuter = segIdx % 2 === 0;
+        const maxR = isOuter ? outerR : innerR;
+        const t = (angle - segIdx * segAngle) / segAngle;
+        const r2 = maxR * (0.25 + t * 0.75);
+        const a2 = segIdx * segAngle + t * segAngle;
+        targets[i * 3] = Math.cos(a2) * r2;
+        targets[i * 3 + 1] = Math.sin(a2) * r2;
+        targets[i * 3 + 2] = (Math.random() - 0.5) * 0.45;
+      }
+      break;
+
+    case 'thumbsup': // Heart
+      for (let i = 0; i < N; i++) {
+        const t = Math.random() * Math.PI * 2;
+        const s = 0.3;
+        const cx = 16 * Math.pow(Math.sin(t), 3);
+        const cy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+        const fill = 0.1 + Math.random() * 0.9;
+        const z = (Math.random() - 0.5) * 1.8;
+        targets[i * 3] = cx * s * fill + (Math.random() - 0.5) * 0.25;
+        targets[i * 3 + 1] = cy * s * fill + (Math.random() - 0.5) * 0.25;
+        targets[i * 3 + 2] = z * s;
+      }
+      break;
+
+    default: // Fallback sphere
+      for (let i = 0; i < N; i++) {
+        const phi = Math.acos(2 * Math.random() - 1);
+        const theta = Math.random() * Math.PI * 2;
+        targets[i * 3] = 2.0 * Math.sin(phi) * Math.cos(theta);
+        targets[i * 3 + 1] = 2.0 * Math.sin(phi) * Math.sin(theta);
+        targets[i * 3 + 2] = 2.0 * Math.cos(phi);
+      }
+  }
+
+  return targets;
+}
+
+// ==================== MOK: GESTURE DETECTION ====================
+function detectMokGesture(hand) {
+  if (!hand || hand.length < 21) return mokGesture;
+
+  function d2(a, b) { return (a.x - b.x) ** 2 + (a.y - b.y) ** 2; }
+
+  const wrist = hand[0];
+  const tipIdx = [4, 8, 12, 16, 20];
+  const mcpIdx = [2, 5, 9, 13, 17];
+
+  const fingers = tipIdx.map((tip, i) => {
+    const tipD = d2(hand[tip], wrist);
+    const mcpD = d2(hand[mcpIdx[i]], wrist);
+    return tipD > mcpD * 1.08;
+  });
+
+  const [thumb, index, middle, ring, pinky] = fingers;
+
+  // Thumbs up: thumb tip significantly above thumb MCP
+  if (thumb && !index && !middle && !ring && !pinky) {
+    if (hand[4].y < hand[2].y - 0.02) return 'thumbsup';
+  }
+  // Scissors: index + middle out, ring + pinky curled
+  if (index && middle && !ring && !pinky) return 'scissors';
+  // Index pointing
+  if (index && !middle && !ring && !pinky) return 'index';
+  // Fist: all curled
+  if (!index && !middle && !ring && !pinky) return 'fist';
+  // Open: all extended
+  if (thumb && index && middle && ring && pinky) return 'open';
+
+  return 'open';
+}
+
+// ==================== MOK: INIT SYSTEM ====================
+function initMokSystem() {
+  if (mokPoints) {
+    mokGeometry.dispose();
+    mokMaterial.dispose();
+    scene.remove(mokPoints);
+  }
+
+  mokPositions = new Float32Array(PARTICLE_COUNT_MOK * 3);
+  mokVelocities = new Float32Array(PARTICLE_COUNT_MOK * 3);
+  mokTargets = generateMokTargets('open');
+  mokColorsArr = new Float32Array(PARTICLE_COUNT_MOK * 3);
+
+  for (let i = 0; i < PARTICLE_COUNT_MOK; i++) {
+    const [x, y, z] = randomInSphere(4);
+    mokPositions[i * 3] = x;
+    mokPositions[i * 3 + 1] = y;
+    mokPositions[i * 3 + 2] = z;
+    mokVelocities[i * 3] = (Math.random() - 0.5) * 0.3;
+    mokVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.3;
+    mokVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
+    mokColorsArr[i * 3] = 0.05;
+    mokColorsArr[i * 3 + 1] = 0.75 + Math.random() * 0.2;
+    mokColorsArr[i * 3 + 2] = 0.8 + Math.random() * 0.15;
+  }
+
+  mokGeometry = new THREE.BufferGeometry();
+  mokGeometry.setAttribute('position', new THREE.BufferAttribute(mokPositions, 3));
+  mokGeometry.setAttribute('color', new THREE.BufferAttribute(mokColorsArr, 3));
+
+  mokMaterial = new THREE.PointsMaterial({
+    size: 0.035,
+    map: glowTexture,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: true,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.88,
+  });
+
+  mokPoints = new THREE.Points(mokGeometry, mokMaterial);
+  mokPoints.visible = false;
+  scene.add(mokPoints);
+
+  mokActive = false;
+  mokGesture = 'open';
+  mokPrevGesture = 'open';
+  mokExplosionTimer = 0;
+  mokDepthScale = 1.0;
+  mokTargetDepthScale = 1.0;
+}
+
+// ==================== MOK: PHYSICS UPDATE ====================
+const MOK_GESTURE_LABELS = { open: '张开手掌 · 球体', scissors: '剪刀手 · 我是 Mok', fist: '握拳 · 圆环', index: '食指 · 星形', thumbsup: '竖拇指 · 爱心' };
+const MOK_GESTURE_ICONS = { open: '🖐', scissors: '✌️', fist: '✊', index: '☝️', thumbsup: '👍' };
+
+function updateMokPhysics(dt, handData) {
+  if (!mokActive) return;
+
+  // Detect gesture
+  let newGesture = 'open';
+  let hasHand = false;
+  if (handData && handData.multiHandLandmarks && handData.multiHandLandmarks.length > 0) {
+    hasHand = true;
+    newGesture = detectMokGesture(handData.multiHandLandmarks[0]);
+  }
+
+  // Gesture change → explosion transition
+  if (newGesture !== mokGesture) {
+    mokPrevGesture = mokGesture;
+    mokGesture = newGesture;
+    mokTargets = generateMokTargets(mokGesture);
+    mokExplosionTimer = 0.55;
+    // Explosion impulse
+    for (let i = 0; i < PARTICLE_COUNT_MOK; i++) {
+      const ix = i * 3, iy = i * 3 + 1, iz = i * 3 + 2;
+      const dx = mokPositions[ix], dy = mokPositions[iy], dz = mokPositions[iz];
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) + 0.01;
+      const force = 7.0 + Math.random() * 4;
+      mokVelocities[ix] += (dx / dist) * force + (Math.random() - 0.5) * 6;
+      mokVelocities[iy] += (dy / dist) * force + (Math.random() - 0.5) * 6;
+      mokVelocities[iz] += (dz / dist) * force + (Math.random() - 0.5) * 6;
+    }
+    // Flash gesture display
+    const display = document.getElementById('mok-gesture-display');
+    if (display) {
+      display.classList.add('exploding');
+      setTimeout(() => display.classList.remove('exploding'), 350);
+    }
+  }
+
+  if (mokExplosionTimer > 0) mokExplosionTimer -= dt;
+
+  // Wind from hand velocity
+  if (hasHand) {
+    const wrist = handData.multiHandLandmarks[0][0];
+    const curPos = { x: wrist.x, y: wrist.y };
+    const dx = curPos.x - mokPrevHandPos.x;
+    const dy = curPos.y - mokPrevHandPos.y;
+    mokHandVelocity = Math.sqrt(dx * dx + dy * dy) / Math.max(dt, 0.001);
+    const windSpeed = Math.min(mokHandVelocity, 3.5);
+    if (windSpeed > 0.25) {
+      mokWindForce.x = dx * windSpeed * 9;
+      mokWindForce.y = dy * windSpeed * 9;
+      mokWindForce.z = (Math.random() - 0.5) * windSpeed * 3;
+    } else {
+      mokWindForce.x *= 0.88;
+      mokWindForce.y *= 0.88;
+      mokWindForce.z *= 0.88;
+    }
+    // Depth scale from palm area
+    const palmPts = [0, 5, 9, 13, 17];
+    let minX = 1, maxX = 0, minY = 1, maxY = 0;
+    for (const idx of palmPts) {
+      minX = Math.min(minX, handData.multiHandLandmarks[0][idx].x);
+      maxX = Math.max(maxX, handData.multiHandLandmarks[0][idx].x);
+      minY = Math.min(minY, handData.multiHandLandmarks[0][idx].y);
+      maxY = Math.max(maxY, handData.multiHandLandmarks[0][idx].y);
+    }
+    mokTargetDepthScale = 0.4 + (maxX - minX) * (maxY - minY) * 18;
+    mokPrevHandPos = curPos;
+  } else {
+    mokWindForce.x *= 0.93; mokWindForce.y *= 0.93; mokWindForce.z *= 0.93;
+    mokTargetDepthScale = 1.0;
+  }
+  mokDepthScale += (Math.max(0.35, Math.min(2.8, mokTargetDepthScale)) - mokDepthScale) * 0.08;
+
+  // Physics integration
+  const springK = mokExplosionTimer > 0 ? 1.8 : 14.0;
+  const damping = mokExplosionTimer > 0 ? 0.915 : 0.86;
+  const turbBase = mokExplosionTimer > 0 ? 0.6 : 0.06;
+
+  for (let i = 0; i < PARTICLE_COUNT_MOK; i++) {
+    const ix = i * 3, iy = i * 3 + 1, iz = i * 3 + 2;
+
+    const tx = mokTargets[ix] * mokDepthScale;
+    const ty = mokTargets[iy] * mokDepthScale;
+    const tz = mokTargets[iz] * mokDepthScale;
+
+    const dx = tx - mokPositions[ix];
+    const dy = ty - mokPositions[iy];
+    const dz = tz - mokPositions[iz];
+
+    const turb = turbBase * (1 + mokHandVelocity * 0.3);
+    const ax = dx * springK + mokWindForce.x + (Math.random() - 0.5) * turb;
+    const ay = dy * springK + mokWindForce.y + (Math.random() - 0.5) * turb;
+    const az = dz * springK + mokWindForce.z + (Math.random() - 0.5) * turb;
+
+    // Semi-implicit Euler
+    mokVelocities[ix] = (mokVelocities[ix] + ax * dt) * damping;
+    mokVelocities[iy] = (mokVelocities[iy] + ay * dt) * damping;
+    mokVelocities[iz] = (mokVelocities[iz] + az * dt) * damping;
+
+    mokPositions[ix] += mokVelocities[ix] * dt;
+    mokPositions[iy] += mokVelocities[iy] * dt;
+    mokPositions[iz] += mokVelocities[iz] * dt;
+
+    // Cyan fluid color with velocity-based brightness
+    const velMag = Math.sqrt(mokVelocities[ix] ** 2 + mokVelocities[iy] ** 2 + mokVelocities[iz] ** 2);
+    const brightness = 0.6 + Math.min(velMag * 0.15, 0.4);
+    mokColorsArr[ix] = 0.03 + mokExplosionTimer * 0.25;
+    mokColorsArr[iy] = brightness * 0.85;
+    mokColorsArr[iz] = brightness;
+  }
+
+  mokGeometry.attributes.position.needsUpdate = true;
+  mokGeometry.attributes.color.needsUpdate = true;
+
+  // Update gesture display
+  const display = document.getElementById('mok-gesture-display');
+  const icon = document.getElementById('mok-gesture-icon');
+  const label = document.getElementById('mok-gesture-label');
+  if (display && mokActive) {
+    display.style.display = 'flex';
+    icon.textContent = MOK_GESTURE_ICONS[mokGesture] || '🖐';
+    label.textContent = MOK_GESTURE_LABELS[mokGesture] || mokGesture;
+  }
+}
+
+// ==================== LOTUS COLOR SYSTEM ====================
+function updateLotusColors(intensity) {
+  // 3-zone gradient: inner purple -> middle dark purple-black -> outer red lava
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const type = lotusTypes[i];
+    const layer = lotusPetalLayer[i];
+    let r, g, b;
+
+    switch (type) {
+      case 0: { // Inner petals - bright purple-white
+        const lf = layer / 15;
+        r = 0.5 + lf * 0.2; g = 0.1 + lf * 0.15; b = 0.6 + (1 - lf) * 0.35;
+        break;
+      }
+      case 1: { // Middle petals - dark purple to black-purple
+        const mt = layer / 35;
+        r = 0.06 + mt * 0.3; g = 0.01 + mt * 0.05; b = 0.12 + mt * 0.4;
+        break;
+      }
+      case 2: { // Outer petals - red-orange lava
+        const ot = layer / 20;
+        const c2 = new THREE.Color();
+        c2.setHSL(0.04 + Math.random() * 0.06, 0.95, 0.3 + ot * 0.4 * intensity + Math.random() * 0.2);
+        r = c2.r; g = c2.g; b = c2.b;
+        break;
+      }
+      case 3: { // Extended - bright orange-red scattered flame
+        const c3 = new THREE.Color();
+        c3.setHSL(0.06 + Math.random() * 0.04, 0.9, 0.4 + Math.random() * 0.4 * intensity);
+        r = c3.r; g = c3.g; b = c3.b;
+        break;
+      }
+      case 6: // Edge gilding - bright gold
+        r = 0.85 + Math.random() * 0.15; g = 0.7 + Math.random() * 0.25; b = 0.2 + Math.random() * 0.4;
+        break;
+      case 7: { // Wisps - purple to red gradient
+        const c7 = new THREE.Color();
+        c7.setHSL(0.65 + (Math.random() - 0.5) * 0.5, 0.85, 0.25 + Math.random() * 0.5 * intensity);
+        r = c7.r; g = c7.g; b = c7.b;
+        break;
+      }
+      case 10: { // Core - intense white/purple glowing
+        const c10 = new THREE.Color();
+        c10.setHSL(0.73 + Math.random() * 0.1, 0.5, 0.5 + Math.random() * 0.5 * intensity);
+        r = c10.r; g = c10.g; b = c10.b;
+        break;
+      }
+      case 11: // Golden runes
+        r = 0.8 + Math.random() * 0.2; g = 0.55 + Math.random() * 0.35; b = 0.04 + Math.random() * 0.25;
+        break;
+      case 12: // Energy rings - cyan-gold
+        r = 0.5 + Math.random() * 0.4; g = 0.6 + Math.random() * 0.3; b = 0.15 + Math.random() * 0.35;
+        break;
+      default:
+        r = 0.5; g = 0.2; b = 0.5;
+    }
+
+    // Blend toward white during high intensity / charge
+    const chargeBoost = lotusChargeState === 'charging' ? lotusChargeLevel * 0.3 : 0;
+    r = Math.min(1, r + chargeBoost);
+    g = Math.min(1, g + chargeBoost * 0.6);
+    b = Math.min(1, b + chargeBoost * 0.8);
+
+    colorsArr[i * 3] = r;
+    colorsArr[i * 3 + 1] = g;
+    colorsArr[i * 3 + 2] = b;
+  }
+  geometry.attributes.color.needsUpdate = true;
+}
+
+const modelGenerators = {
+  heart: generateHeart,
+  flower: generateFlower,
+  saturn: generateSaturn,
+  buddha: generateBuddha,
+  fireworks: generateFireworks,
+  'xiao-yan-lotus': generateXiaoYanLotus,
+  mok: null, // Mok uses its own 16K physics system
+};
+
+// ==================== PARTICLE UPDATE ====================
+function setBasePositions(model) {
+  oldBasePositions = basePositions ? new Float32Array(basePositions) : null;
+  basePositions = modelGenerators[model](PARTICLE_COUNT);
+  if (!oldBasePositions) {
+    oldBasePositions = new Float32Array(basePositions);
+  }
+  modelTransition = 0;
+}
+
+function updateParticleColors() {
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // Slight hue variation per particle
+    const h = particleColor.getHSL({}).h;
+    const s = particleColor.getHSL({}).s;
+    const l = particleColor.getHSL({}).l;
+    const hueVar = (Math.random() - 0.5) * 0.08;
+    const lightVar = (Math.random() - 0.5) * 0.15;
+    const c = new THREE.Color();
+    c.setHSL(
+      (h + hueVar + 1) % 1,
+      Math.min(1, Math.max(0, s + (Math.random() - 0.5) * 0.1)),
+      Math.min(1, Math.max(0.3, l + lightVar))
+    );
+    colorsArr[i * 3] = c.r;
+    colorsArr[i * 3 + 1] = c.g;
+    colorsArr[i * 3 + 2] = c.b;
+  }
+  geometry.attributes.color.needsUpdate = true;
+}
+
+function updateAllParticles(scale, diffusion) {
+  const effectiveDiffusion = diffusion * diffusionStrength;
+  const pos = geometry.attributes.position.array;
+
+  // Blend between old and new positions during transition
+  const t = Math.min(modelTransition, 1.0);
+  // Ease in-out
+  const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const ix = i * 3;
+    const iy = i * 3 + 1;
+    const iz = i * 3 + 2;
+
+    // Interpolate base position during transition
+    let bx, by, bz;
+    if (oldBasePositions && t < 1) {
+      bx = oldBasePositions[ix] + (basePositions[ix] - oldBasePositions[ix]) * ease;
+      by = oldBasePositions[iy] + (basePositions[iy] - oldBasePositions[iy]) * ease;
+      bz = oldBasePositions[iz] + (basePositions[iz] - oldBasePositions[iz]) * ease;
+    } else {
+      bx = basePositions[ix];
+      by = basePositions[iy];
+      bz = basePositions[iz];
+    }
+
+    // Scale
+    let sx = bx * smoothScale;
+    let sy = by * smoothScale;
+    let sz = bz * smoothScale;
+
+    // Diffusion: push outward from origin
+    const dist = Math.sqrt(sx * sx + sy * sy + sz * sz) + 0.001;
+    const nx = sx / dist;
+    const ny = sy / dist;
+    const nz = sz / dist;
+    const diffAmount = effectiveDiffusion * 2.5;
+    sx += nx * diffAmount;
+    sy += ny * diffAmount;
+    sz += nz * diffAmount;
+
+    pos[ix] = sx;
+    pos[iy] = sy;
+    pos[iz] = sz;
+  }
+
+  geometry.attributes.position.needsUpdate = true;
+}
+
+// ==================== HAND TRACKING ====================
+let latestHandResults = null;
+
+function getLandmark3D(hand, idx) {
+  return {
+    x: hand[idx].x,
+    y: hand[idx].y,
+    z: hand[idx].z,
+  };
+}
+
+function distance3D(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  const dz = (a.z || 0) - (b.z || 0);
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+function processGestures(results) {
+  latestHandResults = results;
+  if (!results || !results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+    handsDetected = 0;
+    targetScale = 1.0;
+    targetDiffusion = 0.4;
+    return;
+  }
+
+  handsDetected = results.multiHandLandmarks.length;
+  const hands = results.multiHandLandmarks;
+
+  if (hands.length === 1) {
+    // Single hand: use openness for diffusion + position for lotus rotation
+    const h = hands[0];
+    const wrist = getLandmark3D(h, 0);
+    const thumbTip = getLandmark3D(h, 4);
+    const indexTip = getLandmark3D(h, 8);
+    const midMcp = getLandmark3D(h, 9);
+
+    // Hand position (for lotus rotation control)
+    singleHandX = wrist.x;
+    singleHandY = wrist.y;
+    singleHandZ = wrist.z || 0;
+
+    const pinchDist = distance3D(thumbTip, indexTip);
+    const palmRef = distance3D(wrist, midMcp) + 0.001;
+    const openness = pinchDist / palmRef;
+
+    // Map openness: when pinched (~0.05) → diffusion 0, open (~1.5) → diffusion 1
+    targetDiffusion = Math.max(0, Math.min(1, (openness - 0.08) / 1.2));
+    targetScale = 1.0;
+  } else if (hands.length >= 2) {
+    // Two hands: distance → scale, average openness → diffusion
+    const h1 = hands[0];
+    const h2 = hands[1];
+
+    // Classify left/right by x position
+    const h1x = h1[0].x;
+    const h2x = h2[0].x;
+    const leftHand = h1x < h2x ? h1 : h2;
+    const rightHand = h1x < h2x ? h2 : h1;
+
+    // Distance between wrists
+    const lWrist = getLandmark3D(leftHand, 0);
+    const rWrist = getLandmark3D(rightHand, 0);
+    const handDist = distance3D(lWrist, rWrist);
+
+    // Map hand distance to scale: 0.05 → 0.3x, 0.8 → 3x
+    const minD = 0.06;
+    const maxD = 0.75;
+    const clamped = Math.max(minD, Math.min(maxD, handDist));
+    targetScale = 0.3 + ((clamped - minD) / (maxD - minD)) * 2.7;
+
+    // Average openness of both hands
+    let totalOpenness = 0;
+    for (const h of [leftHand, rightHand]) {
+      const w = getLandmark3D(h, 0);
+      const tt = getLandmark3D(h, 4);
+      const it = getLandmark3D(h, 8);
+      const mm = getLandmark3D(h, 9);
+      const pinch = distance3D(tt, it);
+      const palm = distance3D(w, mm) + 0.001;
+      totalOpenness += pinch / palm;
+    }
+    const avgOpenness = totalOpenness / 2;
+    targetDiffusion = Math.max(0, Math.min(1, (avgOpenness - 0.08) / 1.2));
+  }
+}
+
+// Initialize MediaPipe Hands
+const hands = new Hands({
+  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+});
+
+hands.setOptions({
+  maxNumHands: 2,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.6,
+});
+
+hands.onResults((results) => {
+  processGestures(results);
+});
+
+// Initialize camera
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: 'user' }
+    });
+    webcamVideo.srcObject = stream;
+    await webcamVideo.play();
+
+    const cameraUtils = new Camera(webcamVideo, {
+      onFrame: async () => {
+        await hands.send({ image: webcamVideo });
+      },
+      width: 640,
+      height: 480,
+    });
+    await cameraUtils.start();
+
+    gestureText.textContent = '摄像头已就绪';
+    gestureDot.className = '';
+    infoTip.style.opacity = '1';
+  } catch (err) {
+    console.warn('Camera access denied:', err);
+    gestureText.textContent = '摄像头未授权 - 鼠标控制';
+    gestureDot.className = 'partial';
+    infoTip.textContent = '拖拽鼠标旋转 · 滚轮缩放 · Shift+滚轮控制扩散';
+    infoTip.style.opacity = '1';
+    // Fallback: mouse controls
+    setupMouseControls();
+  }
+}
+
+// Mouse fallback controls
+function setupMouseControls() {
+  let isDragging = false;
+  let prevMouse = { x: 0, y: 0 };
+
+  renderer.domElement.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    prevMouse = { x: e.clientX, y: e.clientY };
+  });
+
+  window.addEventListener('mouseup', () => { isDragging = false; });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - prevMouse.x;
+    const dy = e.clientY - prevMouse.y;
+    points.rotation.y += dx * 0.005;
+    points.rotation.x += dy * 0.005;
+    prevMouse = { x: e.clientX, y: e.clientY };
+  });
+
+  renderer.domElement.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (e.shiftKey) {
+      targetDiffusion = Math.max(0, Math.min(1, targetDiffusion + e.deltaY * 0.001));
+    } else {
+      targetScale = Math.max(0.3, Math.min(3, targetScale - e.deltaY * 0.002));
+    }
+  }, { passive: false });
+}
+
+// ==================== UI HANDLERS ====================
+function setActiveModel(model) {
+  currentModel = model;
+  document.querySelectorAll('.model-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.model === model);
+  });
+
+  // Mok-specific: toggle particle systems
+  const isMok = model === 'mok';
+  const mokDisplay = document.getElementById('mok-gesture-display');
+
+  if (isMok) {
+    mokActive = true;
+    if (!mokPoints) initMokSystem();
+    mokPoints.visible = true;
+    points.visible = false;
+    mokDisplay.style.display = 'flex';
+    document.getElementById('intensity-group').style.display = 'none';
+    infoTip.textContent = '手势变形粒子 · 快速挥动吹散 · 手掌远近缩放';
+    mokGesture = 'open';
+    mokTargets = generateMokTargets('open');
+    mokExplosionTimer = 0.5;
+  } else {
+    mokActive = false;
+    if (mokPoints) mokPoints.visible = false;
+    points.visible = true;
+    if (mokDisplay) mokDisplay.style.display = 'none';
+
+    // Cleanup lotus charge state when switching away
+    if (currentModel !== 'xiao-yan-lotus') {
+      stopChargeSound();
+      lotusChargeState = 'idle';
+      lotusChargeLevel = 0;
+      lotusShakeAmp = 0;
+      lotusVignette = 0;
+      lotusFlashAlpha = 0;
+      lotusCurrentZoom = 8;
+      const vignetteEl = document.getElementById('vignette-overlay');
+      const flashEl = document.getElementById('flash-overlay');
+      const ring = document.getElementById('shockwave-ring');
+      if (vignetteEl) { vignetteEl.style.opacity = '0'; vignetteEl.classList.remove('active'); }
+      if (flashEl) { flashEl.style.opacity = '0'; flashEl.classList.remove('peak'); }
+      if (ring) ring.classList.remove('expanding');
+    }
+
+    document.getElementById('intensity-group').style.display = model === 'xiao-yan-lotus' ? 'flex' : 'none';
+    if (model === 'xiao-yan-lotus') {
+      initAllExternalSystems();
+      showLotusExternalSystems(true);
+    } else {
+      showLotusExternalSystems(false);
+    }
+    const densityEl = document.getElementById('lotus-density');
+    if (densityEl) densityEl.classList.toggle('show', model === 'xiao-yan-lotus');
+    infoTip.textContent = model === 'xiao-yan-lotus'
+      ? '✊ 握拳蓄力 → 松手爆发碎屏 → 0.8s定格 → 逆向愈合 | 50K莲体+70K外延=12万粒子'
+      : '张开/合拢手指控制扩散 · 双手距离控制缩放';
+  }
+
+  // Standard model handling
+  if (!isMok) {
+    setBasePositions(model);
+    if (model === 'xiao-yan-lotus') {
+      updateLotusColors(lotusIntensity);
+    } else {
+      updateParticleColors();
+    }
+  }
+}
+
+// Model buttons
+modelGrid.addEventListener('click', (e) => {
+  const btn = e.target.closest('.model-btn');
+  if (!btn) return;
+  setActiveModel(btn.dataset.model);
+});
+
+// Color picker
+colorPicker.addEventListener('input', () => {
+  particleColor.set(colorPicker.value);
+  updateParticleColors();
+});
+
+// Color presets
+colorPresets.addEventListener('click', (e) => {
+  const dot = e.target.closest('.color-dot');
+  if (!dot) return;
+  const color = dot.dataset.color;
+  particleColor.set(color);
+  colorPicker.value = color;
+  updateParticleColors();
+});
+
+// Size slider
+sizeSlider.addEventListener('input', () => {
+  particleSize = parseFloat(sizeSlider.value);
+  material.size = particleSize;
+});
+
+// Diffusion strength slider
+diffusionSlider.addEventListener('input', () => {
+  diffusionStrength = parseFloat(diffusionSlider.value);
+});
+
+// Lotus intensity slider
+const intensitySlider = document.getElementById('intensity-slider');
+intensitySlider.addEventListener('input', () => {
+  lotusIntensity = parseFloat(intensitySlider.value);
+});
+
+// Webcam toggle
+document.getElementById('btn-webcam').addEventListener('click', () => {
+  webcamOverlay.classList.toggle('hidden');
+});
+
+// Auto rotate toggle
+const btnAutoRotate = document.getElementById('btn-auto-rotate');
+btnAutoRotate.addEventListener('click', () => {
+  autoRotate = !autoRotate;
+  btnAutoRotate.style.background = autoRotate
+    ? 'rgba(255,255,255,0.04)'
+    : 'rgba(124,92,252,0.2)';
+  btnAutoRotate.style.borderColor = autoRotate
+    ? 'rgba(255,255,255,0.1)'
+    : '#7c5cfc';
+});
+
+// Fullscreen button
+document.getElementById('btn-fullscreen').addEventListener('click', () => {
+  if (!isFullscreen) {
+    document.documentElement.requestFullscreen?.()
+      || document.documentElement.webkitRequestFullscreen?.();
+  } else {
+    document.exitFullscreen?.()
+      || document.webkitExitFullscreen?.();
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  isFullscreen = !!document.fullscreenElement;
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  isFullscreen = !!document.webkitFullscreenElement;
+});
+
+// Keyboard shortcuts
+window.addEventListener('keydown', (e) => {
+  const keys = { '1': 'heart', '2': 'flower', '3': 'saturn', '4': 'buddha', '5': 'fireworks', '6': 'xiao-yan-lotus', '7': 'mok' };
+  if (keys[e.key] && !e.ctrlKey && !e.metaKey && document.activeElement === document.body) {
+    setActiveModel(keys[e.key]);
+  }
+  if (e.key === 'f' && !e.ctrlKey && !e.metaKey) {
+    document.getElementById('btn-fullscreen').click();
+  }
+});
+
+// Resize handler
+window.addEventListener('resize', () => {
+  camera.aspect = container.clientWidth / container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+// ==================== LOTUS AUDIO SYSTEM ====================
+function initLotusAudio() {
+  if (lotusAudioInitialized) return;
+  try {
+    lotusAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    lotusAudioInitialized = true;
+  } catch (e) {
+    console.warn('Web Audio not available');
+  }
+}
+
+function startChargeSound() {
+  if (!lotusAudioCtx) return;
+  stopChargeSound();
+  lotusChargeOsc = lotusAudioCtx.createOscillator();
+  lotusChargeGain = lotusAudioCtx.createGain();
+  lotusChargeOsc.type = 'sine';
+  lotusChargeOsc.frequency.value = 35;
+  lotusChargeGain.gain.value = 0;
+  lotusChargeOsc.connect(lotusChargeGain);
+  lotusChargeGain.connect(lotusAudioCtx.destination);
+  lotusChargeOsc.start();
+  lotusChargeSound = { osc: lotusChargeOsc, gain: lotusChargeGain };
+}
+
+function updateChargeSound(level) {
+  if (!lotusChargeSound) return;
+  lotusChargeSound.osc.frequency.value = 35 + level * 120;
+  lotusChargeSound.gain.gain.value = Math.min(level * 0.25, 0.25);
+}
+
+function stopChargeSound() {
+  if (lotusChargeSound) {
+    try { lotusChargeSound.osc.stop(); } catch (e) {}
+    lotusChargeSound = null;
+  }
+}
+
+function playReleaseSound() {
+  if (!lotusAudioCtx) return;
+
+  // Beat 1: Deep boom (low freq burst)
+  const t0 = lotusAudioCtx.currentTime;
+  const boom = lotusAudioCtx.createOscillator();
+  const boomGain = lotusAudioCtx.createGain();
+  boom.type = 'sine';
+  boom.frequency.setValueAtTime(80, t0);
+  boom.frequency.exponentialRampToValueAtTime(18, t0 + 0.35);
+  boomGain.gain.setValueAtTime(0.5, t0);
+  boomGain.gain.exponentialRampToValueAtTime(0.01, t0 + 0.5);
+  boom.connect(boomGain).connect(lotusAudioCtx.destination);
+  boom.start(t0);
+  boom.stop(t0 + 0.5);
+
+  // Beat 2: Rising whistle (sweep up)
+  const sweep = lotusAudioCtx.createOscillator();
+  const sweepGain = lotusAudioCtx.createGain();
+  sweep.type = 'sawtooth';
+  sweep.frequency.setValueAtTime(120, t0 + 0.15);
+  sweep.frequency.exponentialRampToValueAtTime(800, t0 + 0.6);
+  sweepGain.gain.setValueAtTime(0.08, t0 + 0.15);
+  sweepGain.gain.linearRampToValueAtTime(0.15, t0 + 0.5);
+  sweepGain.gain.exponentialRampToValueAtTime(0.01, t0 + 0.7);
+  sweep.connect(sweepGain).connect(lotusAudioCtx.destination);
+  sweep.start(t0 + 0.15);
+  sweep.stop(t0 + 0.7);
+
+  // Beat 3: Explosion crack (noise burst)
+  const bufferSize = lotusAudioCtx.sampleRate * 0.6;
+  const noiseBuffer = lotusAudioCtx.createBuffer(1, bufferSize, lotusAudioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    const t = i / lotusAudioCtx.sampleRate;
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-t * 8);
+  }
+  const noise = lotusAudioCtx.createBufferSource();
+  const noiseGain = lotusAudioCtx.createGain();
+  noise.buffer = noiseBuffer;
+  noiseGain.gain.setValueAtTime(0.35, t0 + 0.4);
+  noiseGain.gain.exponentialRampToValueAtTime(0.01, t0 + 1.0);
+  const noiseFilter = lotusAudioCtx.createBiquadFilter();
+  noiseFilter.type = 'lowpass';
+  noiseFilter.frequency.setValueAtTime(300, t0 + 0.4);
+  noiseFilter.frequency.exponentialRampToValueAtTime(50, t0 + 1.0);
+  noise.connect(noiseFilter).connect(noiseGain).connect(lotusAudioCtx.destination);
+  noise.start(t0 + 0.4);
+  noise.stop(t0 + 1.2);
+}
+
+// ==================== SHATTER SCREEN EFFECT (ENHANCED FREEZE/HEAL) ====================
+function initShatter() {
+    const el = document.getElementById('shatter-canvas');
+    if (!el) return;
+    el.width = window.innerWidth;
+    el.height = window.innerHeight;
+    shatterCanvasEl = el;
+    shatterCtx = el.getContext('2d');
+    shatterCracks = [];
+    shatterFragments = [];
+    shatterTime = 0;
+    shatterActive = true;
+    el.classList.add('active');
+
+    // Also init glow canvas
+    const glowEl = document.getElementById('crack-glow-canvas');
+    if (glowEl) { glowEl.width = el.width; glowEl.height = el.height; }
+
+    const cx = el.width / 2;
+    const cy = el.height / 2;
+    const maxDim = Math.max(el.width, el.height);
+
+    // More main cracks (8-14)
+    const numMainCracks = 8 + Math.floor(Math.random() * 7);
+    for (let i = 0; i < numMainCracks; i++) {
+        const angle = (Math.PI * 2 / numMainCracks) * i + (Math.random() - 0.5) * 0.3;
+        const length = maxDim * (0.55 + Math.random() * 0.45);
+        generateCrack(cx, cy, angle, length, 0);
+    }
+
+    // Secondary cracks from random points
+    for (let i = 0; i < 8; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = maxDim * (0.08 + Math.random() * 0.25);
+        const sx = cx + Math.cos(angle) * dist;
+        const sy = cy + Math.sin(angle) * dist;
+        generateCrack(sx, sy, angle + (Math.random() - 0.5) * 0.6, maxDim * (0.35 + Math.random() * 0.35), 1);
+    }
+
+    // Glass fragments
+    const numFragments = 120 + Math.floor(Math.random() * 80);
+    for (let i = 0; i < numFragments; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * maxDim * 0.55;
+        const size = 12 + Math.random() * 65;
+        const numVerts = 3 + Math.floor(Math.random() * 4);
+        const verts = [];
+        for (let j = 0; j < numVerts; j++) {
+            const a = (Math.PI * 2 / numVerts) * j + (Math.random() - 0.5) * 0.5;
+            const r = size * (0.35 + Math.random() * 0.65);
+            verts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r });
+        }
+        // Store initial position for heal
+        const initX = cx + Math.cos(angle) * dist * 0.3;
+        const initY = cy + Math.sin(angle) * dist * 0.3;
+        shatterFragments.push({
+            x: initX, y: initY,
+            initX, initY,
+            vx: (Math.random() - 0.5) * maxDim * 0.55,
+            vy: (Math.random() - 0.5) * maxDim * 0.55 - Math.random() * 180,
+            size: size,
+            rot: Math.random() * Math.PI * 2,
+            rotV: (Math.random() - 0.5) * 5,
+            opacity: 0.5 + Math.random() * 0.5,
+            delay: Math.random() * 0.35,
+            vertices: verts,
+            crackGlow: Math.random() < 0.3,
+        });
+    }
+
+    // Body camera shake
+    document.body.classList.add('camera-shake');
+}
+
+function generateCrack(x1, y1, angle, length, depth) {
+    if (depth > SHATTER_MAX_DEPTH || length < 6) return;
+
+    const endX = x1 + Math.cos(angle) * length;
+    const endY = y1 + Math.sin(angle) * length;
+
+    shatterCracks.push({
+        x1, y1, x2: endX, y2: endY,
+        initX1: x1, initY1: y1, initX2: endX, initY2: endY,
+        depth,
+        maxTravel: length,
+        width: Math.max(0.6, 5 - depth * 0.8),
+        glow: depth <= 2,
+        progress: 0,
+        sparkTimer: 0,
+    });
+
+    const numBranches = depth === 0 ? (2 + Math.floor(Math.random() * 3)) : (Math.random() < 0.45 ? 1 + Math.floor(Math.random() * 2) : 0);
+    for (let i = 0; i < numBranches; i++) {
+        const branchFrac = 0.22 + Math.random() * 0.55;
+        const branchAngle = angle + (Math.random() - 0.5) * (Math.PI / 2.0);
+        const branchLength = length * (0.28 + Math.random() * 0.38);
+        const bx = x1 + Math.cos(angle) * length * branchFrac;
+        const by = y1 + Math.sin(angle) * length * branchFrac;
+        generateCrack(bx, by, branchAngle, branchLength, depth + 1);
+    }
+}
+
+function updateShatter(dt, isFreeze, isHeal) {
+    if (!shatterActive || !shatterCtx) return;
+
+    if (isFreeze) {
+        // FREEZE: hold cracks at full spread, fragments still slowly drift
+        const el = shatterCanvasEl;
+        const ctx = shatterCtx;
+        ctx.clearRect(0, 0, el.width, el.height);
+        drawCracks(ctx, el, 1.0, 1.0);
+        drawFragments(ctx, dt, 0.02, false);
+        drawSparkParticles(ctx, 1.0, 0.4);
+
+        // Draw glow on separate canvas
+        drawCrackGlow(1.0);
+        return;
+    }
+
+    if (isHeal) {
+        // HEAL: cracks reverse, fragments return to origin
+        shatterTime = Math.max(0, shatterTime - dt * 1.6);
+        const healProgress = 1 - Math.min(shatterTime / 1.8, 1);
+
+        const el = shatterCanvasEl;
+        const ctx = shatterCtx;
+        ctx.clearRect(0, 0, el.width, el.height);
+
+        const crackProgress = Math.min(shatterTime / 1.8, 1);
+        const easedP = 1 - Math.pow(1 - crackProgress, 2.5);
+        drawCracks(ctx, el, easedP, 1 - healProgress);
+        drawFragments(ctx, dt, 0.03, true);
+        drawSparkParticles(ctx, easedP, 0.15);
+
+        drawCrackGlow(easedP);
+
+        // When fully healed
+        if (shatterTime <= 0) {
+            endShatter();
+        }
+        return;
+    }
+
+    // NORMAL: cracks spreading
+    shatterTime += dt;
+    const el = shatterCanvasEl;
+    const ctx = shatterCtx;
+    ctx.clearRect(0, 0, el.width, el.height);
+
+    const crackProgress = Math.min(shatterTime / 1.8, 1);
+    const easedP = 1 - Math.pow(1 - crackProgress, 2.5);
+    drawCracks(ctx, el, easedP, 0);
+    drawFragments(ctx, dt, 1.0, false);
+    drawSparkParticles(ctx, easedP, 0.8);
+
+    drawCrackGlow(easedP);
+
+    // End of spread phase
+    if (shatterTime > 2.2) {
+        shatterActive = false;
+        endShatter();
+    }
+}
+
+function drawCracks(ctx, el, easedP, healAlpha) {
+    const w = el.width, h = el.height;
+    for (const crack of shatterCracks) {
+        const depthDelay = crack.depth * 0.05;
+        const crackP = Math.max(0, Math.min(1, (easedP - depthDelay) / (1 - depthDelay)));
+        if (crackP <= 0) continue;
+
+        const dx = crack.x2 - crack.x1;
+        const dy = crack.y2 - crack.y1;
+        const fullLen = Math.sqrt(dx * dx + dy * dy);
+        const clampedLen = Math.min(crack.maxTravel * crackP, fullLen);
+        const ratio = fullLen > 0 ? clampedLen / fullLen : 0;
+        const ex = crack.x1 + dx * ratio;
+        const ey = crack.y1 + dy * ratio;
+
+        const baseAlpha = Math.max(0, (1 - crackP * 0.4) - healAlpha);
+
+        // Outer glow
+        if (crack.glow && crackP > 0.03 && baseAlpha > 0.05) {
+            ctx.save();
+            ctx.beginPath(); ctx.moveTo(crack.x1, crack.y1); ctx.lineTo(ex, ey);
+            ctx.lineWidth = crack.width + 6;
+            ctx.strokeStyle = `rgba(255, 40, 5, ${0.4 * baseAlpha})`;
+            ctx.shadowColor = 'rgba(255, 20, 0, 0.7)'; ctx.shadowBlur = 12 + crack.width * 2;
+            ctx.stroke(); ctx.restore();
+        }
+
+        // Bright inner line
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(crack.x1, crack.y1); ctx.lineTo(ex, ey);
+        ctx.lineWidth = crack.width * 0.4;
+        ctx.strokeStyle = `rgba(255, 180, 120, ${0.8 * baseAlpha})`;
+        ctx.shadowColor = 'rgba(255, 100, 40, 0.5)'; ctx.shadowBlur = 3;
+        ctx.stroke(); ctx.restore();
+
+        // Dark core
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(crack.x1, crack.y1); ctx.lineTo(ex, ey);
+        ctx.lineWidth = crack.width;
+        ctx.strokeStyle = `rgba(5, 1, 3, ${0.9 * baseAlpha})`;
+        ctx.stroke(); ctx.restore();
+    }
+}
+
+function drawFragments(ctx, dt, mult, returning) {
+    for (const frag of shatterFragments) {
+        if (shatterTime < frag.delay && !returning) continue;
+        const age = returning ? Math.max(0, 1 - shatterTime / 1.8) : Math.min((shatterTime - frag.delay) / 2.0, 1);
+        const alpha = frag.opacity * (1 - age * (returning ? 0.5 : 0.85));
+        if (alpha <= 0.01) continue;
+
+        if (returning) {
+            // Return to origin
+            frag.x += (frag.initX - frag.x) * 0.08;
+            frag.y += (frag.initY - frag.y) * 0.08;
+            frag.rot += (0 - frag.rot) * 0.06;
+        } else {
+            frag.x += frag.vx * dt * mult;
+            frag.y += frag.vy * dt * mult;
+            frag.vy += 60 * dt;
+            frag.rot += frag.rotV * dt * mult;
+        }
+
+        ctx.save();
+        ctx.translate(frag.x, frag.y);
+        ctx.rotate(frag.rot);
+        const v = frag.vertices;
+        if (v.length > 0) {
+            ctx.beginPath();
+            ctx.moveTo(v[0].x, v[0].y);
+            for (let j = 1; j < v.length; j++) ctx.lineTo(v[j].x, v[j].y);
+            ctx.closePath();
+            ctx.fillStyle = `rgba(6, 2, 4, ${alpha * 0.7})`; ctx.fill();
+            ctx.strokeStyle = `rgba(180, 20, 15, ${alpha * 0.8})`; ctx.lineWidth = 2;
+            ctx.shadowColor = 'rgba(200, 15, 8, 0.6)'; ctx.shadowBlur = 10;
+            ctx.stroke();
+            ctx.strokeStyle = `rgba(255, 100, 40, ${alpha * 0.5})`; ctx.lineWidth = 0.7; ctx.shadowBlur = 4;
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+}
+
+function drawSparkParticles(ctx, easedP, mult) {
+    if (shatterTime > 3.5) return;
+    const numSparks = Math.floor(6 * mult);
+    for (let i = 0; i < numSparks; i++) {
+        const crack = shatterCracks[Math.floor(Math.random() * shatterCracks.length)];
+        const depthDelay = crack.depth * 0.05;
+        const crackP = Math.max(0, Math.min(1, (easedP - depthDelay) / (1 - depthDelay)));
+        if (crackP <= 0.03) continue;
+        const dx = crack.x2 - crack.x1, dy = crack.y2 - crack.y1;
+        const fullLen = Math.sqrt(dx*dx+dy*dy);
+        const clampedLen = Math.min(crack.maxTravel * crackP, fullLen);
+        const ratio = fullLen > 0 ? clampedLen / fullLen : 0;
+        const ex = crack.x1 + dx * ratio, ey = crack.y1 + dy * ratio;
+        ctx.beginPath();
+        ctx.arc(ex + (Math.random()-0.5)*14, ey + (Math.random()-0.5)*14, 1.2+Math.random()*3, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255,${160+Math.random()*95},${Math.random()*50},${0.85*mult})`;
+        ctx.fill();
+    }
+}
+
+function drawCrackGlow(easedP) {
+    const glowEl = document.getElementById('crack-glow-canvas');
+    if (!glowEl) return;
+    const ctx = glowEl.getContext('2d');
+    const w = glowEl.width, h = glowEl.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // Draw soft radial glow at crack tips
+    for (const crack of shatterCracks) {
+        if (!crack.glow) continue;
+        const depthDelay = crack.depth * 0.05;
+        const crackP = Math.max(0, Math.min(1, (easedP - depthDelay) / (1 - depthDelay)));
+        if (crackP <= 0.05) continue;
+        const dx = crack.x2 - crack.x1, dy = crack.y2 - crack.y1;
+        const fullLen = Math.sqrt(dx*dx+dy*dy);
+        const clampedLen = Math.min(crack.maxTravel * crackP, fullLen);
+        const ratio = fullLen > 0 ? clampedLen / fullLen : 0;
+        const ex = crack.x1 + dx * ratio, ey = crack.y1 + dy * ratio;
+
+        const grad = ctx.createRadialGradient(ex, ey, 0, ex, ey, 40 + crack.width * 8);
+        grad.addColorStop(0, 'rgba(255, 80, 20, 0.5)');
+        grad.addColorStop(0.3, 'rgba(200, 30, 60, 0.3)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(ex - 50, ey - 50, 100, 100);
+    }
+    glowEl.classList.toggle('active', easedP > 0.03);
+}
+
+function endShatter() {
+    shatterActive = false;
+    const el = document.getElementById('shatter-canvas');
+    if (el) { el.classList.remove('active','healing'); const ctx = el.getContext('2d'); ctx.clearRect(0,0,el.width,el.height); }
+    const glowEl = document.getElementById('crack-glow-canvas');
+    if (glowEl) { glowEl.classList.remove('active'); const ctx = glowEl.getContext('2d'); ctx.clearRect(0,0,glowEl.width,glowEl.height); }
+    document.body.classList.remove('camera-shake');
+    shatterCracks = [];
+    shatterFragments = [];
+    shatterTime = 0;
+}
+
+// Handle canvas resize for all overlays
+window.addEventListener('resize', () => {
+    const glowEl = document.getElementById('crack-glow-canvas');
+    const hwEl = document.getElementById('heatwave-canvas');
+    if (shatterCanvasEl) { shatterCanvasEl.width = window.innerWidth; shatterCanvasEl.height = window.innerHeight; }
+    if (glowEl) { glowEl.width = window.innerWidth; glowEl.height = window.innerHeight; }
+    if (hwEl) { hwEl.width = window.innerWidth; hwEl.height = window.innerHeight; }
+});
+
+
+
+// ==================== ANIMATION LOOP ====================
+const clock = new THREE.Clock();
+
+function animate(timestamp) {
+  requestAnimationFrame(animate);
+
+  const dt = Math.min(clock.getDelta(), 0.1);
+  const isLotus = currentModel === 'xiao-yan-lotus';
+  const isMok = currentModel === 'mok';
+
+  // Smooth gesture values with lerp
+  const smoothing = 1 - Math.exp(-8 * dt);
+  smoothScale += (targetScale - smoothScale) * smoothing;
+  smoothDiffusion += (targetDiffusion - smoothDiffusion) * smoothing;
+
+  // Smooth hand position for lotus rotation
+  if (isLotus) {
+    handSmoothedX += (singleHandX - handSmoothedX) * smoothing;
+    handSmoothedY += (singleHandY - handSmoothedY) * smoothing;
+  }
+
+  // Advance model transition
+  if (modelTransition < 1) {
+    modelTransition += dt * 2.5;
+  }
+
+  // Model-specific animation
+  if (isMok) {
+    // Mok physics simulation
+    updateMokPhysics(dt, latestHandResults);
+
+    // Mok-specific rotation: auto-rotate gently, hand overrides
+    if (handsDetected >= 1 && latestHandResults && latestHandResults.multiHandLandmarks.length > 0) {
+      const wrist = latestHandResults.multiHandLandmarks[0][0];
+      const targetRY = (wrist.x - 0.5) * Math.PI * 1.2;
+      const targetRX = (wrist.y - 0.5) * 0.8;
+      mokPoints.rotation.y += (targetRY - mokPoints.rotation.y) * smoothing * 1.2;
+      mokPoints.rotation.x += (targetRX - mokPoints.rotation.x) * smoothing * 1.2;
+    } else {
+      mokPoints.rotation.y += dt * 0.2;
+    }
+  } else if (isLotus) {
+    lotusTime += dt;
+
+    // Lotus breathing float + auto rotation
+    lotusBreathPhase += dt * 0.55;
+    const breathY = Math.sin(lotusBreathPhase) * 0.35;
+    const breathScale = 1 + Math.sin(lotusBreathPhase * 0.75) * 0.04;
+    lotusFloatY += (breathY - lotusFloatY) * 0.04;
+
+    // Handle transition from previous model
+    if (modelTransition < 1 && oldBasePositions) {
+      modelTransition += dt * 2.5;
+      updateAllParticles(1.0, 0);
+    } else {
+      modelTransition = 1;
+
+      // ===== CHARGE/RELEASE/FREEZE/HEAL STATE MACHINE =====
+      const isHandClosed = handsDetected >= 1 && smoothDiffusion < 0.12;
+
+      if (lotusChargeState === 'idle') {
+        lotusChargeLevel = 0; lotusChargeTime = 0;
+        lotusIllusionFadeTarget = 1; lotusIllusionFade = 1; // Reset illusion
+        if (isHandClosed) {
+          lotusChargeState = 'charging';
+          lotusIllusionFadeTarget = 1.5; // Boost illusion density
+          initLotusAudio(); startChargeSound();
+        }
+      } else if (lotusChargeState === 'charging') {
+        if (isHandClosed) {
+          lotusChargeTime += dt;
+          lotusChargeLevel = Math.min(1, lotusChargeTime / 2.5);
+          updateChargeSound(lotusChargeLevel);
+        } else if (lotusChargeLevel > 0.15) {
+          // RELEASE! Trigger shatter
+          lotusChargeState = 'release';
+          lotusReleaseTime = 0;
+          stopChargeSound(); playReleaseSound();
+          lotusShockwaveActive = true;
+          lotusFlashAlpha = 1.0;
+          lotusHeatWaveTime = 0.8;
+          if (navigator.vibrate) navigator.vibrate([50, 30, 50, 30, 100]);
+          initShatter();
+        } else { lotusChargeState = 'idle'; lotusChargeLevel = 0;
+          lotusIllusionFadeTarget = 1; lotusIllusionFade = 1; stopChargeSound(); }
+      } else if (lotusChargeState === 'release') {
+        lotusReleaseTime += dt;
+        updateShatter(dt, false, false);
+        lotusChargeLevel = Math.max(0, 1 - lotusReleaseTime / lotusReleaseDuration);
+        lotusFlashAlpha = Math.max(0, lotusFlashAlpha - dt * 3.5);
+        lotusHeatWaveTime = Math.max(0, lotusHeatWaveTime - dt);
+        // After release spread (~0.5s), enter freeze
+        if (lotusReleaseTime > 0.5) {
+          lotusChargeState = 'freeze';
+          lotusFreezeTime = 0;
+        }
+      } else if (lotusChargeState === 'freeze') {
+        lotusFreezeTime += dt;
+        updateShatter(dt, true, false);
+        lotusChargeLevel = Math.max(0, lotusChargeLevel - dt * 0.3);
+        lotusFlashAlpha = Math.max(0, lotusFlashAlpha - dt * 2);
+        lotusHeatWaveTime = Math.max(0, lotusHeatWaveTime - dt);
+        // Hold for 0.8s
+        if (lotusFreezeTime >= LOTUS_FREEZE_DURATION) {
+          lotusChargeState = 'heal';
+          lotusHealTime = 0;
+          // Fire heal ring
+          const healRing = document.getElementById('heal-ring');
+          if (healRing) { healRing.classList.remove('contracting'); void healRing.offsetWidth; healRing.classList.add('contracting'); }
+        }
+      } else if (lotusChargeState === 'heal') {
+        lotusHealTime += dt;
+        updateShatter(dt, false, true);
+        lotusChargeLevel = Math.max(0, lotusChargeLevel - dt * 0.5);
+        lotusFlashAlpha = 0;
+        lotusHeatWaveTime = 0;
+        if (lotusHealTime >= LOTUS_HEAL_DURATION) {
+          lotusChargeState = 'cooldown';
+          lotusShockwaveActive = false;
+          lotusIllusionFadeTarget = 0; // Trigger 1.2s dissolve
+          endShatter();
+        }
+      } else if (lotusChargeState === 'cooldown') {
+        lotusChargeLevel = Math.max(0, lotusChargeLevel - dt * 0.6);
+        if (lotusChargeLevel <= 0.01 && !isHandClosed) {
+          lotusChargeState = 'idle'; lotusChargeLevel = 0;
+        }
+      }
+
+      // ===== CAMERA ZOOM =====
+      if (lotusChargeState === 'charging') {
+        lotusTargetZoom = 8 - lotusChargeLevel * 4.5;
+      } else if (lotusChargeState === 'release' && lotusReleaseTime < 0.3) {
+        lotusTargetZoom = 15;
+      } else if (lotusChargeState === 'freeze') {
+        lotusTargetZoom = 13;
+      } else if (lotusChargeState === 'heal') {
+        lotusTargetZoom = 8 + (1 - lotusHealTime / LOTUS_HEAL_DURATION) * 5;
+      } else {
+        lotusTargetZoom = 8;
+      }
+      lotusCurrentZoom += (lotusTargetZoom - lotusCurrentZoom) * (
+        (lotusChargeState === 'release' && lotusReleaseTime < 0.3) ? 0.3 :
+        lotusChargeState === 'freeze' ? 0.15 : 0.06
+      );
+
+      // ===== SCREEN SHAKE =====
+      if (lotusChargeState === 'charging') {
+        lotusShakeAmp = lotusChargeLevel * 0.12;
+        if (lotusShakeAmp > 0.02) document.body.classList.add('camera-shake');
+        else document.body.classList.remove('camera-shake');
+      } else if (lotusChargeState === 'release') {
+        const decay = Math.exp(-lotusReleaseTime * 2.2);
+        lotusShakeAmp = decay * 0.9 * (0.5 + 0.5 * Math.sin(lotusReleaseTime * 28));
+        if (lotusShakeAmp < 0.003) lotusShakeAmp = 0;
+        if (lotusShakeAmp > 0.01) document.body.classList.add('camera-shake');
+        else document.body.classList.remove('camera-shake');
+      } else if (lotusChargeState === 'freeze') {
+        lotusShakeAmp = 0.02 * Math.sin(lotusFreezeTime * 12) * Math.exp(-lotusFreezeTime * 1.5);
+        if (lotusShakeAmp > 0.005) document.body.classList.add('camera-shake');
+        else document.body.classList.remove('camera-shake');
+      } else if (lotusChargeState === 'heal') {
+        lotusShakeAmp += (0 - lotusShakeAmp) * 0.15;
+        document.body.classList.remove('camera-shake');
+      } else {
+        lotusShakeAmp += (0 - lotusShakeAmp) * 0.1;
+        document.body.classList.remove('camera-shake');
+      }
+
+      // ===== VIGNETTE =====
+      if (lotusChargeState === 'charging') { lotusVignette = lotusChargeLevel; }
+      else if (lotusChargeState === 'release') { lotusVignette = Math.max(0, 1 - lotusReleaseTime / 0.5); }
+      else if (lotusChargeState === 'freeze') { lotusVignette = 0.95; }
+      else if (lotusChargeState === 'heal') { lotusVignette = Math.max(0, 0.95 - lotusHealTime / LOTUS_HEAL_DURATION); }
+      else { lotusVignette += (0 - lotusVignette) * 0.08; }
+
+      // ===== SHOCKWAVE RING =====
+      if (lotusShockwaveActive) {
+        const ring = document.getElementById('shockwave-ring');
+        if (ring) { ring.classList.remove('expanding'); void ring.offsetWidth; ring.classList.add('expanding'); setTimeout(() => ring.classList.remove('expanding'), 2200); }
+        lotusShockwaveActive = false;
+      }
+
+      // ===== HEAT SHIMMER =====
+      const shimmerEl = document.getElementById('heat-shimmer');
+      if (shimmerEl) {
+        const shouldShimmer = lotusChargeState === 'release' || lotusChargeState === 'freeze' || lotusHeatWaveTime > 0.01;
+        shimmerEl.classList.toggle('active', shouldShimmer);
+      }
+
+      // ===== UPDATE OVERLAYS =====
+      const vignetteEl = document.getElementById('vignette-overlay');
+      const flashEl = document.getElementById('flash-overlay');
+      if (vignetteEl) { vignetteEl.style.opacity = lotusVignette; vignetteEl.classList.toggle('active', lotusVignette > 0.01); }
+      if (flashEl) { flashEl.style.opacity = lotusFlashAlpha; flashEl.classList.toggle('peak', lotusFlashAlpha > 0.5); }
+
+      // ===== SCENE COLOR GRADING =====
+      if (lotusChargeState === 'charging') {
+        scene.fog.color.setRGB(0.03 + lotusChargeLevel * 0.12, 0.01, 0.04 + lotusChargeLevel * 0.18);
+        renderer.toneMappingExposure = 1.2 + lotusChargeLevel * 0.8;
+      } else if ((lotusChargeState === 'release' || lotusChargeState === 'freeze') && lotusFlashAlpha > 0.3) {
+        renderer.toneMappingExposure = lotusChargeState === 'freeze' ? 3.0 : 4.0;
+      } else if (lotusChargeState === 'heal') {
+        renderer.toneMappingExposure += (1.2 - renderer.toneMappingExposure) * 0.08;
+      } else {
+        scene.fog.color.lerp(new THREE.Color(0x0a0a0f), 0.05);
+        renderer.toneMappingExposure += (1.2 - renderer.toneMappingExposure) * 0.1;
+      }
+
+      // ===== HEAT WAVE CANVAS =====
+      const hwCanvas = document.getElementById('heatwave-canvas');
+      if (hwCanvas && (lotusHeatWaveTime > 0.001 || lotusChargeState === 'freeze')) {
+        hwCanvas.width = window.innerWidth; hwCanvas.height = window.innerHeight;
+        const hwCtx = hwCanvas.getContext('2d');
+        hwCtx.clearRect(0, 0, hwCanvas.width, hwCanvas.height);
+        const alpha = lotusChargeState === 'freeze' ? 0.35 + Math.sin(lotusFreezeTime * 8) * 0.15 : lotusHeatWaveTime * 0.5;
+        // Render heat distortion as semi-transparent wavy lines
+        for (let y = 0; y < hwCanvas.height; y += 8) {
+          hwCtx.beginPath();
+          for (let x = 0; x < hwCanvas.width; x += 4) {
+            const offset = Math.sin(x * 0.03 + lotusTime * 15 + y * 0.05) * 3 + Math.sin(x * 0.07 + lotusTime * 20) * 2;
+            if (x === 0) hwCtx.moveTo(x, y + offset);
+            else hwCtx.lineTo(x, y + offset);
+          }
+          hwCtx.strokeStyle = `rgba(255,120,20,${alpha * 0.15})`;
+          hwCtx.lineWidth = 1;
+          hwCtx.stroke();
+        }
+        hwCanvas.classList.add('active');
+      } else if (hwCanvas) {
+        hwCanvas.classList.remove('active');
+      }
+
+      // ===== LOTUS PARTICLE BEHAVIOR =====
+      if (lotusChargeState === 'charging') {
+        const chargeIntensity = 0.3 + lotusChargeLevel * 1.8;
+        lotusIntensity += (chargeIntensity - lotusIntensity) * smoothing;
+        updateLotusParticles(lotusTime, lotusIntensity * 0.35);
+        // Strong inward convergence
+        const pos = geometry.attributes.position.array;
+        const converge = lotusChargeLevel * 0.65;
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+          const ix = i*3, iy = i*3+1, iz = i*3+2;
+          pos[ix] *= (1 - converge * 0.018);
+          pos[iy] = (pos[iy] - 0.32) * (1 - converge * 0.018) + 0.32;
+          pos[iz] *= (1 - converge * 0.018);
+        }
+        geometry.attributes.position.needsUpdate = true;
+        updateAllExternalSystems(lotusTime, lotusIntensity, lotusChargeLevel, 0);
+      } else if (lotusChargeState === 'release') {
+        const releaseProgress = Math.min(lotusReleaseTime / 0.5, 1);
+        const explodeIntensity = (1 - releaseProgress) * 2.5 + 0.5;
+        lotusIntensity += (explodeIntensity - lotusIntensity) * smoothing;
+        updateLotusParticles(lotusTime, lotusIntensity * 1.3);
+        // Radial explosion force (handled inside updateLotusParticles)
+        updateAllExternalSystems(lotusTime, lotusIntensity, lotusChargeLevel, releaseProgress);
+      } else if (lotusChargeState === 'freeze') {
+        // Hold particles in exploded state
+        lotusIntensity += (1.8 - lotusIntensity) * smoothing * 0.3;
+        updateLotusParticles(lotusTime, lotusIntensity);
+        updateAllExternalSystems(lotusTime, 1.5, 0.3, 1.0);
+      } else if (lotusChargeState === 'heal') {
+        const healProgress = lotusHealTime / LOTUS_HEAL_DURATION;
+        lotusIntensity += ((1 - healProgress) * 1.8 - lotusIntensity) * smoothing * 0.5;
+        updateLotusParticles(lotusTime, lotusIntensity);
+        updateAllExternalSystems(lotusTime, Math.max(0, 1 - healProgress) * 1.5, 0, 1 - healProgress);
+      } else {
+        // Normal lotus animation with hand control
+        if (handsDetected >= 1) {
+          points.position.y = lotusFloatY;
+          points.scale.setScalar(breathScale);
+          const targetRotY = (handSmoothedX - 0.5) * Math.PI * 1.8;
+          const targetRotX = (handSmoothedY - 0.5) * 1.6;
+          points.rotation.y += (targetRotY - points.rotation.y) * smoothing * 1.5;
+          points.rotation.x += (targetRotX - points.rotation.x) * smoothing * 1.5;
+          const targetIntensity = 0.3 + smoothDiffusion * 2.2;
+          lotusIntensity += (targetIntensity - lotusIntensity) * smoothing;
+        } else {
+          points.position.y = lotusFloatY;
+          points.rotation.y += dt * 0.35;
+          points.scale.setScalar(breathScale);
+          points.rotation.x += Math.sin(lotusTime * 0.4) * dt * 0.1;
+          const baseIntensity = parseFloat(intensitySlider.value);
+          const breathe = baseIntensity + Math.sin(lotusTime * 0.7) * 0.35;
+          lotusIntensity += (breathe - lotusIntensity) * smoothing;
+        }
+        updateLotusParticles(lotusTime, lotusIntensity);
+        updateAllExternalSystems(lotusTime, lotusIntensity, 0, 0);
+      }
+
+      // ===== PERIODIC COLOR REFRESH =====
+      const colorRefreshStates = ['idle', 'cooldown'];
+      if (colorRefreshStates.includes(lotusChargeState)) {
+        if (Math.floor(lotusTime * 6.5) !== Math.floor((lotusTime - dt) * 6.5)) {
+          updateLotusColors(lotusIntensity);
+        }
+      } else if (lotusChargeState === 'charging') {
+        updateLotusColors(0.3 + lotusChargeLevel * 2.5);
+      } else if (lotusChargeState === 'release' || lotusChargeState === 'freeze') {
+        updateLotusColors(2.5);
+      } else if (lotusChargeState === 'heal') {
+        updateLotusColors(2.5 * (1 - lotusHealTime / LOTUS_HEAL_DURATION));
+      }
+
+      // ===== DENSITY BADGE =====
+      const densityEl = document.getElementById('lotus-density');
+      if (densityEl && lotusChargeState !== 'idle' && lotusChargeState !== 'cooldown') {
+        const totalParts = PARTICLE_COUNT + PARTICLE_COUNT_AURA + PARTICLE_COUNT_SPARKS + PARTICLE_COUNT_ASH + PARTICLE_COUNT_ILLUSION;
+        const stateLabel = {charging:'蓄力凝聚·幻境聚拢',release:'爆裂释放·幻境炸裂',freeze:'碎屏定格·0.8s',heal:'逆向愈合·幻境消散'}[lotusChargeState]||'';
+        densityEl.textContent = `🔥 ${stateLabel} · 莲体${Math.floor(PARTICLE_COUNT/1000)}K+外延幻境${Math.floor((PARTICLE_COUNT_AURA+PARTICLE_COUNT_SPARKS+PARTICLE_COUNT_ASH+PARTICLE_COUNT_ILLUSION)/1000)}K · 莲瓣200+层`;
+      }
+    }
+  } else {
+    if (currentModel === 'fireworks') {
+      fireworksTime += dt;
+      if (Math.floor(fireworksTime * 3) !== Math.floor((fireworksTime - dt) * 3)) {
+        basePositions = generateFireworks(PARTICLE_COUNT);
+        oldBasePositions = null;
+        modelTransition = 1;
+      }
+    }
+
+    // Standard auto rotation
+    if ((autoRotate || handsDetected === 0) && !isMok) {
+      points.rotation.y += dt * 0.3;
+      points.rotation.x += dt * 0.08;
+    }
+
+    // Standard particle update
+    if (!isMok) updateAllParticles(smoothScale, smoothDiffusion);
+  }
+
+  // Update gesture indicator
+  if (isMok) {
+    gestureDot.className = handsDetected > 0 ? 'active' : '';
+    const windStr = mokHandVelocity > 0.3 ? ` 🌪风速:${(mokHandVelocity * 100).toFixed(0)}` : '';
+    const depthStr = ` 深度:${mokDepthScale.toFixed(2)}x`;
+    gestureText.textContent = handsDetected > 0
+      ? `${MOK_GESTURE_ICONS[mokGesture]} ${MOK_GESTURE_LABELS[mokGesture]}${windStr}${depthStr}`
+      : '未检测到手部 · 自动旋转';
+    infoTip.style.opacity = '0';
+  } else if (handsDetected === 0) {
+    gestureDot.className = '';
+    if (isLotus) {
+      if (lotusChargeState === 'charging') {
+        gestureText.textContent = `🔥 蓄力中 ${(lotusChargeLevel * 100).toFixed(0)}% · 粒子凝聚 · 松手爆发`;
+      } else if (lotusChargeState === 'release') {
+        gestureText.textContent = lotusChargeState === 'freeze' ? '💥 碎屏定格 0.8s · 幻境弥散' : lotusChargeState === 'heal' ? '🔮 碎屏愈合 · 幻境1.2s消散' : '💥 爆裂! 幻境炸裂 · 冲击波扩散';
+      } else {
+        gestureText.textContent = '握拳蓄力 · 凝聚火莲+幻境 · 松手爆发碎屏';
+      }
+      if (infoTip.style.opacity === '0') infoTip.style.opacity = '1';
+    } else {
+      gestureText.textContent = '未检测到手部';
+      if (infoTip.style.opacity === '0') infoTip.style.opacity = '1';
+    }
+  } else if (handsDetected === 1) {
+    gestureDot.className = 'partial';
+    if (isLotus) {
+      if (lotusChargeState === 'charging') {
+        gestureText.textContent = `🔥 蓄力 ${(lotusChargeLevel * 100).toFixed(0)}% · 转速 ${(lotusChargeLevel * 300).toFixed(0)}°/s · 握紧蓄力`;
+      } else if (lotusChargeState === 'release') {
+        gestureText.textContent = `💥 火莲爆发! · 震波扩散 · 烈度MAX`;
+      } else {
+        gestureText.textContent = `单手掌莲 · 握拳蓄力爆发 · 旋转: ${((handSmoothedX - 0.5) * 360).toFixed(0)}°`;
+      }
+    } else {
+      gestureText.textContent = `单手 · 扩散: ${(smoothDiffusion * 100).toFixed(0)}%`;
+    }
+    infoTip.style.opacity = '0';
+  } else {
+    gestureDot.className = 'active';
+    gestureText.textContent = `双手 · 缩放: ${smoothScale.toFixed(2)}x · 扩散: ${(smoothDiffusion * 100).toFixed(0)}%`;
+    infoTip.style.opacity = '0';
+  }
+
+  // Slight floating animation for stars
+  stars.rotation.y += dt * 0.03;
+  stars.rotation.x += dt * 0.01;
+
+  // Camera orbit + lotus zoom/shake
+  const camAngle = timestamp * 0.0001;
+  if (isLotus) {
+    // Lotus camera: face-on with zoom
+    camera.position.x = Math.sin(camAngle) * 1.0;
+    camera.position.y = 0.3;
+    camera.position.z = lotusCurrentZoom;
+    // Screen shake offset
+    if (lotusShakeAmp > 0.001) {
+      camera.position.x += (Math.random() - 0.5) * lotusShakeAmp * 2;
+      camera.position.y += (Math.random() - 0.5) * lotusShakeAmp * 2;
+    }
+    // Heat wave distortion during release
+    if (lotusHeatWaveTime > 0 && lotusChargeState === 'release') {
+      const hw = lotusHeatWaveTime * 0.08;
+      camera.position.x += Math.sin(timestamp * 0.04 + camAngle) * hw;
+      camera.position.y += Math.cos(timestamp * 0.05 + camAngle * 1.3) * hw;
+    }
+    camera.lookAt(0, 0.2, 0);
+  } else {
+    camera.position.x = Math.sin(camAngle) * 1.5;
+    camera.position.z = 8 + Math.cos(camAngle * 0.7) * 0.5;
+    camera.lookAt(0, 0, 0);
+  }
+
+  // Render
+  renderer.render(scene, camera);
+}
+
+// ==================== INITIALIZATION ====================
+async function init() {
+  // Generate initial particle positions
+  setBasePositions(currentModel);
+  initAllExternalSystems();
+  updateParticleColors();
+
+  // Show initial state
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    positionsArr[i * 3] = basePositions[i * 3];
+    positionsArr[i * 3 + 1] = basePositions[i * 3 + 1];
+    positionsArr[i * 3 + 2] = basePositions[i * 3 + 2];
+  }
+  geometry.attributes.position.needsUpdate = true;
+  geometry.attributes.color.needsUpdate = true;
+
+  // Start camera
+  await startCamera();
+
+  // Hide loading
+  loadingEl.classList.add('hidden');
+  setTimeout(() => loadingEl.remove(), 500);
+
+  // Start animation
+  requestAnimationFrame(animate);
+}
+
+init().catch((err) => {
+  console.error('Initialization error:', err);
+  loadingEl.innerHTML = '<p style="color:#ff4d6a">初始化失败，请刷新页面重试</p>';
+});
+</script>
+</body>
+</html>
