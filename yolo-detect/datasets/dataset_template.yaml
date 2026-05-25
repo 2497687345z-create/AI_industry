@@ -1,0 +1,17 @@
+# YOLOv8 Dataset Configuration
+# Copy this file into your dataset folder and edit it.
+
+# Dataset root (absolute path)
+path: C:/Users/xuyan/Desktop/claude/yolo-detect/datasets/my-objects
+
+# Train/val image directories (relative to path)
+train: images/train
+val: images/val
+
+# Number of classes
+nc: 2
+
+# Class names
+names:
+  0: object-a
+  1: object-b
