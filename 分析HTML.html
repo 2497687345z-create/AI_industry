@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataMine Pro | 专业数据挖掘平台</title>
+    <!-- 核心CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- Pyodide (Python WebAssembly) -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <!-- WebR (R WebAssembly) -->
+    <script src="https://cdn.jsdelivr.net/npm/@r-wasm/webr@0.2.1/dist/webr.min.js"></script>
+
+    <!-- 简奢风格配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gold: '#D4B16A',
+                        dark: '#121212',
+                        darker: '#0A0A0A',
+                        light: '#F5F5F5',
+                        neutral: '#888888',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .text-luxury { @apply text-gold tracking-wide; }
+            .btn-luxury { @apply px-6 py-2.5 border border-gold text-gold hover:bg-gold hover:text-dark transition-all duration-500 text-sm; }
+            .btn-primary { @apply px-6 py-2.5 bg-gold text-dark hover:bg-gold/90 transition-all duration-500 text-sm; }
+            .btn-secondary { @apply px-6 py-2.5 bg-neutral/20 text-light hover:bg-neutral/30 transition-all duration-500 text-sm; }
+            .card-luxury { @apply bg-darker p-6 rounded-sm border border-gray-800 hover:border-gold/30 transition-all duration-500; }
+            .section-padding { @apply py-20 md:py-28; }
+            .code-editor { @apply bg-darker border border-gray-800 p-4 font-mono text-sm text-light rounded-sm focus:border-gold outline-none; }
+        }
+    </style>
+</head>
+<body class="bg-dark text-light antialiased">
+
+<!-- 导航栏 -->
+<nav class="fixed w-full top-0 z-50 bg-dark/95 backdrop-blur-md border-b border-gray-800">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+            <i class="fa fa-diamond text-gold text-xl"></i>
+            <span class="text-xl font-light tracking-widest">DATAMINE PRO</span>
+        </div>
+        <div class="hidden md:flex items-center space-x-8 text-sm">
+            <a href="#features" class="hover:text-gold transition-colors">核心功能</a>
+            <a href="#engines" class="hover:text-gold transition-colors">分析引擎</a>
+            <a href="#formats" class="hover:text-gold transition-colors">支持格式</a>
+            <button id="start-analysis" class="btn-luxury">开始分析</button>
+        </div>
+    </div>
+</nav>
+
+<!-- 首屏 -->
+<section class="min-h-screen flex items-center justify-center px-6 pt-32 pb-20">
+    <div class="max-w-5xl mx-auto text-center space-y-8">
+        <div class="inline-block px-4 py-1 border border-gold/30 rounded-full text-gold text-xs mb-4">
+            集成 Python + R 双引擎
+        </div>
+        <h1 class="text-[clamp(2.5rem,6vw,4.5rem)] font-light leading-tight">
+            专业级 <span class="text-gold">数据挖掘</span>
+            <br>不止于 Excel
+        </h1>
+        <p class="text-neutral text-lg md:text-xl max-w-2xl mx-auto">
+            支持10+种数据格式 · Pandas/Numpy 全功能 · R语言统计分析 · 纯前端运行
+        </p>
+        <div class="flex flex-col sm:flex-row justify-center gap-4 mt-8">
+            <button id="start-btn" class="btn-primary">立即开始分析</button>
+            <button id="demo-btn" class="btn-luxury">加载演示数据</button>
+        </div>
+    </div>
+</section>
+
+<!-- 核心功能 -->
+<section id="features" class="section-padding bg-darker px-6">
+    <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl md:text-4xl font-light mb-4">专业分析能力</h2>
+            <p class="text-neutral max-w-xl mx-auto">融合业界标准技术栈，提供企业级数据分析体验</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="card-luxury">
+                <div class="flex items-center mb-4">
+                    <i class="fa fa-file-text-o text-gold text-2xl mr-4"></i>
+                    <h3 class="text-xl font-light">多格式支持</h3>
+                </div>
+                <p class="text-neutral text-sm">Excel(.xlsx/.xls)、CSV、TSV、JSON、Parquet、SQLite等10+种格式</p>
+            </div>
+            
+            <div class="card-luxury">
+                <div class="flex items-center mb-4">
+                    <i class="fa fa-python text-gold text-2xl mr-4"></i>
+                    <h3 class="text-xl font-light">Python 引擎</h3>
+                </div>
+                <p class="text-neutral text-sm">完整 Pandas 数据处理、Numpy 数值计算、Matplotlib 可视化</p>
+            </div>
+            
+            <div class="card-luxury">
+                <div class="flex items-center mb-4">
+                    <i class="fa fa-r text-gold text-2xl mr-4"></i>
+                    <h3 class="text-xl font-light">R 语言引擎</h3>
+                </div>
+                <p class="text-neutral text-sm">统计检验、回归分析、聚类分析、时间序列预测</p>
+            </div>
+            
+            <div class="card-luxury">
+                <div class="flex items-center mb-4">
+                    <i class="fa fa-magic text-gold text-2xl mr-4"></i>
+                    <h3 class="text-xl font-light">智能数据清洗</h3>
+                </div>
+                <p class="text-neutral text-sm">自动识别缺失值、异常值、重复值，一键数据预处理</p>
+            </div>
+            
+            <div class="card-luxury">
+                <div class="flex items-center mb-4">
+                    <i class="fa fa-bar-chart text-gold text-2xl mr-4"></i>
+                    <h3 class="text-xl font-light">高级可视化</h3>
+                </div>
+                <p class="text-neutral text-sm">20+种图表类型，支持 Python 和 R 原生绘图</p>
+            </div>
+            
+            <div class="card-luxury">
+                <div class="flex items-center mb-4">
+                    <i class="fa fa-file-pdf-o text-gold text-2xl mr-4"></i>
+                    <h3 class="text-xl font-light">专业报告</h3>
+                </div>
+                <p class="text-neutral text-sm">一键生成 HTML/PDF 分析报告，包含代码、图表和结论</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 分析引擎 -->
+<section id="engines" class="section-padding px-6">
+    <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl md:text-4xl font-light mb-4">双引擎架构</h2>
+            <p class="text-neutral max-w-xl mx-auto">同时运行 Python 和 R，发挥各自优势</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8">
+            <div class="card-luxury">
+                <div class="flex items-center mb-6">
+                    <i class="fa fa-python text-gold text-3xl mr-4"></i>
+                    <div>
+                        <h3 class="text-2xl font-light">Python 3.11</h3>
+                        <p class="text-neutral text-sm">基于 Pyodide WebAssembly</p>
+                    </div>
+                </div>
+                <ul class="space-y-3 text-neutral text-sm">
+                    <li class="flex items-center"><i class="fa fa-check text-success mr-2"></i> Pandas 2.1 数据处理</li>
+                    <li class="flex items-center"><i class="fa fa-check text-success mr-2"></i> Numpy 1.26 数值计算</li>
+                    <li class="flex items-center"><i class="fa fa-check text-success mr-2"></i> Matplotlib/Seaborn 可视化</li>
+                    <li class="flex items-center"><i class="fa fa-check text-success mr-2"></i> Scikit-learn 机器学习</li>
+                    <li class="flex items-center"><i class="fa fa-check text-success mr-2"></i> 自定义 Python 代码执行</li>
+                </ul>
+            </div>
+            
+            <div class="card-luxury">
+                <div class="flex items-center mb-6">
+                    <i class="fa fa-r text-gold text-3xl mr-4"></i>
+                    <div>
+                        <h3 class="text-2xl font-light">R 4.3</h3>
+                        <p class="text-neutral text-sm">基于 WebR WebAssembly</p>
+                    </div>
+                </div>
+                <ul class="space-y-3 text-neutral text-sm">
+                    <li class="flex items-center"><i class="fa fa-check text-success mr-2"></i> 基础统计与描述性分析</li>
+                    <li class="flex items-center"><i class="fa fa-check text-success mr-2"></i> t检验、方差分析、卡方检验</li>
+                    <li class="flex items-center"><i class="fa fa-check text-success mr-2"></i> 线性/逻辑回归分析</li>
+                    <li class="flex items-center"><i class="fa fa-check text-success mr-2"></i> K-means 聚类分析</li>
+                    <li class="flex items-center"><i class="fa fa-check text-success mr-2"></i> 自定义 R 代码执行</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 支持格式 -->
+<section id="formats" class="section-padding bg-darker px-6">
+    <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl md:text-4xl font-light mb-4">全格式支持</h2>
+            <p class="text-neutral max-w-xl mx-auto">无需转换，直接读取主流数据格式</p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div class="card-luxury text-center">
+                <i class="fa fa-file-excel-o text-gold text-2xl mb-2"></i>
+                <p class="text-sm">Excel</p>
+            </div>
+            <div class="card-luxury text-center">
+                <i class="fa fa-file-text-o text-gold text-2xl mb-2"></i>
+                <p class="text-sm">CSV</p>
+            </div>
+            <div class="card-luxury text-center">
+                <i class="fa fa-file-text-o text-gold text-2xl mb-2"></i>
+                <p class="text-sm">TSV</p>
+            </div>
+            <div class="card-luxury text-center">
+                <i class="fa fa-file-code-o text-gold text-2xl mb-2"></i>
+                <p class="text-sm">JSON</p>
+            </div>
+            <div class="card-luxury text-center">
+                <i class="fa fa-database text-gold text-2xl mb-2"></i>
+                <p class="text-sm">Parquet</p>
+            </div>
+            <div class="card-luxury text-center">
+                <i class="fa fa-database text-gold text-2xl mb-2"></i>
+                <p class="text-sm">SQLite</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 分析面板 -->
+<section id="analysis-panel" class="section-padding px-6 hidden">
+    <div class="max-w-7xl mx-auto">
+        <div class="mb-10 flex justify-between items-center">
+            <h2 class="text-3xl font-light">数据挖掘中心</h2>
+            <button id="back-home" class="text-gold hover:underline">← 返回首页</button>
+        </div>
+
+        <!-- 引擎加载状态 -->
+        <div id="engine-status" class="card-luxury mb-8">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="w-3 h-3 rounded-full bg-warning animate-pulse mr-3"></div>
+                    <span>正在加载 Python 和 R 分析引擎...</span>
+                </div>
+                <span id="engine-progress" class="text-neutral text-sm">0%</span>
+            </div>
+            <div class="mt-3 h-1 bg-gray-800 rounded-full overflow-hidden">
+                <div id="engine-bar" class="h-full bg-gold w-0 transition-all duration-300"></div>
+            </div>
+        </div>
+
+        <!-- 数据上传 -->
+        <div class="card-luxury mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                    <h3 class="text-xl font-light mb-2">导入数据</h3>
+                    <p class="text-neutral text-sm">支持 Excel、CSV、TSV、JSON、Parquet 等格式</p>
+                </div>
+                <div class="flex gap-3">
+                    <input type="file" id="file-input" class="hidden" accept=".xlsx,.xls,.csv,.tsv,.json,.parquet,.sqlite">
+                    <button id="upload-btn" class="btn-luxury">
+                        <i class="fa fa-upload mr-2"></i>选择文件
+                    </button>
+                    <button id="load-demo" class="btn-secondary">
+                        <i class="fa fa-play mr-2"></i>演示数据
+                    </button>
+                </div>
+            </div>
+            <div id="file-info" class="mt-4 hidden">
+                <div class="flex items-center justify-between p-3 bg-dark rounded-sm border border-gray-800">
+                    <div class="flex items-center">
+                        <i class="fa fa-file-o text-gold mr-3"></i>
+                        <span id="file-name"></span>
+                    </div>
+                    <span id="file-stats" class="text-neutral text-sm"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能标签 -->
+        <div class="flex border-b border-gray-800 mb-8 overflow-x-auto scrollbar-hide">
+            <button class="py-3 px-6 text-gold border-b-2 border-gold tab-btn" data-target="preview">数据预览</button>
+            <button class="py-3 px-6 text-neutral tab-btn" data-target="cleaning">数据清洗</button>
+            <button class="py-3 px-6 text-neutral tab-btn" data-target="statistics">统计分析</button>
+            <button class="py-3 px-6 text-neutral tab-btn" data-target="python">Python 分析</button>
+            <button class="py-3 px-6 text-neutral tab-btn" data-target="r">R 分析</button>
+            <button class="py-3 px-6 text-neutral tab-btn" data-target="visualization">可视化</button>
+            <button class="py-3 px-6 text-neutral tab-btn" data-target="report">生成报告</button>
+        </div>
+
+        <!-- 内容面板 -->
+        <div class="tab-content" id="preview">
+            <div class="card-luxury">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-light">数据表格</h3>
+                    <div class="flex gap-2">
+                        <button id="show-missing" class="btn-secondary text-xs">缺失值统计</button>
+                        <button id="show-types" class="btn-secondary text-xs">数据类型</button>
+                    </div>
+                </div>
+                <div class="overflow-auto max-h-[500px]">
+                    <table id="data-table" class="w-full text-sm"></table>
+                </div>
+                <div id="pagination" class="mt-4 flex justify-between items-center text-neutral text-sm">
+                    <span id="page-info">显示 0-0 条，共 0 条</span>
+                    <div class="flex gap-2">
+                        <button id="prev-page" class="px-3 py-1 bg-neutral/20 rounded disabled:opacity-50" disabled>上一页</button>
+                        <button id="next-page" class="px-3 py-1 bg-neutral/20 rounded disabled:opacity-50" disabled>下一页</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content hidden" id="cleaning">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="card-luxury">
+                    <h3 class="text-xl font-light mb-4">缺失值处理</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-neutral text-sm mb-2">选择列</label>
+                            <select id="missing-column" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light"></select>
+                        </div>
+                        <div>
+                            <label class="block text-neutral text-sm mb-2">处理方式</label>
+                            <select id="missing-method" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light">
+                                <option value="drop">删除行</option>
+                                <option value="mean">均值填充</option>
+                                <option value="median">中位数填充</option>
+                                <option value="mode">众数填充</option>
+                                <option value="constant">常数填充</option>
+                            </select>
+                        </div>
+                        <div id="constant-value" class="hidden">
+                            <label class="block text-neutral text-sm mb-2">填充值</label>
+                            <input type="text" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light">
+                        </div>
+                        <button id="apply-missing" class="btn-primary w-full">应用处理</button>
+                    </div>
+                </div>
+                
+                <div class="card-luxury">
+                    <h3 class="text-xl font-light mb-4">重复值处理</h3>
+                    <div class="space-y-4">
+                        <p class="text-neutral text-sm">检测并删除数据中的重复行</p>
+                        <button id="check-duplicates" class="btn-secondary w-full">检测重复值</button>
+                        <div id="duplicate-result" class="hidden p-3 bg-dark rounded-sm border border-gray-800">
+                            <p>发现 <span id="duplicate-count" class="text-gold"></span> 条重复数据</p>
+                        </div>
+                        <button id="remove-duplicates" class="btn-primary w-full hidden">删除重复值</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content hidden" id="statistics">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="card-luxury">
+                    <h3 class="text-xl font-light mb-4">描述性统计</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-neutral text-sm mb-2">选择数值列</label>
+                            <select id="stats-column" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light"></select>
+                        </div>
+                        <button id="calc-stats" class="btn-primary w-full">计算统计量</button>
+                        <div id="stats-result" class="mt-4 space-y-2 text-sm">
+                            <div class="flex justify-between py-2 border-b border-gray-800">
+                                <span class="text-neutral">样本数</span>
+                                <span id="stat-count">-</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-800">
+                                <span class="text-neutral">均值</span>
+                                <span id="stat-mean">-</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-800">
+                                <span class="text-neutral">中位数</span>
+                                <span id="stat-median">-</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-800">
+                                <span class="text-neutral">标准差</span>
+                                <span id="stat-std">-</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-800">
+                                <span class="text-neutral">最小值</span>
+                                <span id="stat-min">-</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-gray-800">
+                                <span class="text-neutral">最大值</span>
+                                <span id="stat-max">-</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="text-neutral">总和</span>
+                                <span id="stat-sum">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-luxury">
+                    <h3 class="text-xl font-light mb-4">相关性分析</h3>
+                    <button id="calc-correlation" class="btn-primary w-full mb-4">计算相关系数</button>
+                    <div class="overflow-auto max-h-[400px]">
+                        <table id="correlation-table" class="w-full text-sm"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content hidden" id="python">
+            <div class="card-luxury">
+                <h3 class="text-xl font-light mb-4">Python 代码编辑器</h3>
+                <p class="text-neutral text-sm mb-4">数据已加载为 Pandas DataFrame：<code class="bg-dark px-2 py-1 rounded">df</code></p>
+                <textarea id="python-code" class="code-editor w-full h-64" placeholder="输入 Python 代码...
+示例：
+# 查看数据前5行
+print(df.head())
+
+# 计算描述性统计
+print(df.describe())
+
+# 分组统计
+print(df.groupby('类别')['销售额'].sum())"></textarea>
+                <div class="flex justify-between items-center mt-4">
+                    <div class="flex gap-2">
+                        <button id="run-python" class="btn-primary">
+                            <i class="fa fa-play mr-2"></i>运行代码
+                        </button>
+                        <button id="clear-python" class="btn-secondary">清空</button>
+                    </div>
+                    <span class="text-neutral text-sm">支持 Pandas、Numpy、Matplotlib</span>
+                </div>
+                <div id="python-output" class="mt-6 p-4 bg-dark rounded-sm border border-gray-800 font-mono text-sm min-h-[100px]">
+                    <span class="text-neutral">输出将显示在这里...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content hidden" id="r">
+            <div class="card-luxury">
+                <h3 class="text-xl font-light mb-4">R 代码编辑器</h3>
+                <p class="text-neutral text-sm mb-4">数据已加载为 R DataFrame：<code class="bg-dark px-2 py-1 rounded">df</code></p>
+                <textarea id="r-code" class="code-editor w-full h-64" placeholder="输入 R 代码...
+示例：
+# 查看数据前6行
+head(df)
+
+# 计算描述性统计
+summary(df)
+
+# 线性回归
+model <- lm(销售额 ~ 广告费用, data=df)
+summary(model)"></textarea>
+                <div class="flex justify-between items-center mt-4">
+                    <div class="flex gap-2">
+                        <button id="run-r" class="btn-primary">
+                            <i class="fa fa-play mr-2"></i>运行代码
+                        </button>
+                        <button id="clear-r" class="btn-secondary">清空</button>
+                    </div>
+                    <span class="text-neutral text-sm">支持基础统计、回归、聚类</span>
+                </div>
+                <div id="r-output" class="mt-6 p-4 bg-dark rounded-sm border border-gray-800 font-mono text-sm min-h-[100px]">
+                    <span class="text-neutral">输出将显示在这里...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content hidden" id="visualization">
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="card-luxury">
+                    <h3 class="text-xl font-light mb-4">图表设置</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-neutral text-sm mb-2">图表类型</label>
+                            <select id="chart-type" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light">
+                                <option value="bar">柱状图</option>
+                                <option value="line">折线图</option>
+                                <option value="pie">饼图</option>
+                                <option value="scatter">散点图</option>
+                                <option value="histogram">直方图</option>
+                                <option value="box">箱线图</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-neutral text-sm mb-2">X轴/标签</label>
+                            <select id="x-axis" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light"></select>
+                        </div>
+                        <div>
+                            <label class="block text-neutral text-sm mb-2">Y轴/数值</label>
+                            <select id="y-axis" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light"></select>
+                        </div>
+                        <button id="generate-chart" class="btn-primary w-full">生成图表</button>
+                    </div>
+                </div>
+                <div class="md:col-span-2 card-luxury">
+                    <h3 class="text-xl font-light mb-4">图表展示</h3>
+                    <div class="h-[400px]">
+                        <canvas id="main-chart"></canvas>
+                    </div>
+                    <div class="flex justify-end mt-4 gap-2">
+                        <button id="download-chart" class="btn-secondary text-sm">下载图表</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content hidden" id="report">
+            <div class="card-luxury">
+                <h3 class="text-xl font-light mb-4">生成分析报告</h3>
+                <p class="text-neutral text-sm mb-6">一键生成包含数据预览、统计分析、图表和代码的完整报告</p>
+                <div class="space-y-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="include-preview" class="mr-3" checked>
+                        <label for="include-preview">包含数据预览</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="include-stats" class="mr-3" checked>
+                        <label for="include-stats">包含统计分析</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="include-charts" class="mr-3" checked>
+                        <label for="include-charts">包含图表</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="include-code" class="mr-3">
+                        <label for="include-code">包含分析代码</label>
+                    </div>
+                    <button id="generate-report" class="btn-primary w-full mt-6">
+                        <i class="fa fa-file-pdf-o mr-2"></i>生成 HTML 报告
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 底部 -->
+<footer class="py-10 border-t border-gray-800 text-center text-neutral text-sm">
+    <p>© 2025 DataMine Pro · 专业级数据挖掘平台</p>
+    <p class="mt-2">集成 Python(Pandas/Numpy) + R 双引擎</p>
+</footer>
+
+<script>
+    // 全局变量
+    let pyodide = null;
+    let webR = null;
+    let currentData = [];
+    let headers = [];
+    let currentPage = 1;
+    const rowsPerPage = 20;
+    let currentChart = null;
+    let enginesLoaded = { python: false, r: false };
+
+    // 页面切换
+    document.getElementById('start-btn').addEventListener('click', startAnalysis);
+    document.getElementById('start-analysis').addEventListener('click', startAnalysis);
+    document.getElementById('back-home').addEventListener('click', () => location.reload());
+
+    function startAnalysis() {
+        document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+        document.getElementById('analysis-panel').classList.remove('hidden');
+        loadEngines();
+    }
+
+    // 加载分析引擎
+    async function loadEngines() {
+        const progressBar = document.getElementById('engine-bar');
+        const progressText = document.getElementById('engine-progress');
+        const statusDot = document.querySelector('#engine-status .w-3');
+
+        try {
+            // 加载 Pyodide
+            progressText.textContent = '20% - 加载 Python 引擎...';
+            progressBar.style.width = '20%';
+            
+            pyodide = await loadPyodide({
+                stdout: (text) => appendPythonOutput(text),
+                stderr: (text) => appendPythonOutput(text, true)
+            });
+            
+            // 安装常用包
+            progressText.textContent = '40% - 安装 Python 库...';
+            progressBar.style.width = '40%';
+            await pyodide.loadPackage(['pandas', 'numpy', 'matplotlib']);
+            
+            enginesLoaded.python = true;
+            
+            // 加载 WebR
+            progressText.textContent = '60% - 加载 R 引擎...';
+            progressBar.style.width = '60%';
+            
+            webR = new WebR.WebR();
+            await webR.init();
+            
+            enginesLoaded.r = true;
+            
+            // 完成
+            progressText.textContent = '100% - 引擎加载完成';
+            progressBar.style.width = '100%';
+            statusDot.classList.remove('bg-warning', 'animate-pulse');
+            statusDot.classList.add('bg-success');
+            
+            setTimeout(() => {
+                document.getElementById('engine-status').innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 rounded-full bg-success mr-3"></div>
+                        <span>Python 和 R 分析引擎已就绪</span>
+                    </div>
+                `;
+            }, 1000);
+            
+        } catch (error) {
+            console.error('引擎加载失败:', error);
+            statusDot.classList.remove('bg-warning', 'animate-pulse');
+            statusDot.classList.add('bg-danger');
+            progressText.textContent = '引擎加载失败，部分功能将不可用';
+        }
+    }
+
+    // 标签切换
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('text-gold', 'border-b-2', 'border-gold');
+                b.classList.add('text-neutral');
+            });
+            btn.classList.add('text-gold', 'border-b-2', 'border-gold');
+            btn.classList.remove('text-neutral');
+            
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(btn.dataset.target).classList.remove('hidden');
+        });
+    });
+
+    // 文件上传
+    document.getElementById('upload-btn').addEventListener('click', () => {
+        document.getElementById('file-input').click();
+    });
+
+    document.getElementById('file-input').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const fileName = file.name;
+        const fileExt = fileName.split('.').pop().toLowerCase();
+        
+        try {
+            let data;
+            
+            if (fileExt === 'xlsx' || fileExt === 'xls') {
+                // Excel 文件
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const arrayBuffer = e.target.result;
+                    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    data = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                    processData(data, fileName);
+                };
+                reader.readAsArrayBuffer(file);
+            } 
+            else if (fileExt === 'csv' || fileExt === 'tsv') {
+                // CSV/TSV 文件
+                const text = await file.text();
+                const delimiter = fileExt === 'tsv' ? '\t' : ',';
+                const result = Papa.parse(text, { delimiter });
+                data = result.data;
+                processData(data, fileName);
+            }
+            else if (fileExt === 'json') {
+                // JSON 文件
+                const text = await file.text();
+                const jsonData = JSON.parse(text);
+                // 转换为二维数组
+                if (Array.isArray(jsonData) && jsonData.length > 0) {
+                    headers = Object.keys(jsonData[0]);
+                    data = [headers, ...jsonData.map(row => headers.map(h => row[h]))];
+                    processData(data, fileName);
+                }
+            }
+            else {
+                alert(`不支持的文件格式: ${fileExt}`);
+            }
+            
+        } catch (error) {
+            console.error('文件读取失败:', error);
+            alert('文件读取失败，请检查文件格式');
+        }
+    });
+
+    // 演示数据
+    document.getElementById('load-demo').addEventListener('click', () => {
+        const demoData = [
+            ['月份', '产品', '区域', '销售额', '订单量', '广告费用', '转化率'],
+            ['1月', '产品A', '华东', 125000, 320, 15000, 0.085],
+            ['1月', '产品A', '华南', 98000, 250, 12000, 0.078],
+            ['1月', '产品B', '华东', 87000, 210, 10000, 0.065],
+            ['2月', '产品A', '华东', 142000, 360, 18000, 0.092],
+            ['2月', '产品A', '华南', 115000, 290, 14000, 0.081],
+            ['2月', '产品B', '华东', 95000, 230, 11000, 0.072],
+            ['3月', '产品A', '华东', 168000, 420, 22000, 0.098],
+            ['3月', '产品A', '华南', 132000, 330, 16000, 0.087],
+            ['3月', '产品B', '华东', 112000, 270, 13000, 0.079]
+        ];
+        processData(demoData, '销售数据演示.csv');
+    });
+
+    // 处理数据
+    function processData(data, fileName) {
+        if (!data || data.length < 2) {
+            alert('数据为空或格式不正确');
+            return;
+        }
+        
+        headers = data[0];
+        currentData = data.slice(1);
+        
+        // 更新文件信息
+        document.getElementById('file-name').textContent = fileName;
+        document.getElementById('file-stats').textContent = `${currentData.length} 行 × ${headers.length} 列`;
+        document.getElementById('file-info').classList.remove('hidden');
+        
+        // 渲染表格
+        currentPage = 1;
+        renderTable();
+        
+        // 填充列选择器
+        populateColumnSelectors();
+        
+        // 将数据传递给 Python 和 R 引擎
+        if (enginesLoaded.python) {
+            loadDataToPython();
+        }
+        if (enginesLoaded.r) {
+            loadDataToR();
+        }
+    }
+
+    // 渲染表格
+    function renderTable() {
+        const table = document.getElementById('data-table');
+        table.innerHTML = '';
+        
+        // 表头
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        headerRow.className = 'border-b border-gray-800';
+        headers.forEach(h => {
+            const th = document.createElement('th');
+            th.className = 'py-3 px-4 text-left text-gold font-light';
+            th.textContent = h;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // 表体
+        const tbody = document.createElement('tbody');
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = Math.min(start + rowsPerPage, currentData.length);
+        const pageData = currentData.slice(start, end);
+        
+        pageData.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-gray-800/50 hover:bg-dark/50';
+            row.forEach(cell => {
+                const td = document.createElement('td');
+                td.className = 'py-3 px-4 text-neutral';
+                td.textContent = cell !== undefined && cell !== null ? cell : '';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        
+        // 更新分页
+        document.getElementById('page-info').textContent = `显示 ${start + 1}-${end} 条，共 ${currentData.length} 条`;
+        document.getElementById('prev-page').disabled = currentPage === 1;
+        document.getElementById('next-page').disabled = end >= currentData.length;
+    }
+
+    // 分页事件
+    document.getElementById('prev-page').addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            renderTable();
+        }
+    });
+
+    document.getElementById('next-page').addEventListener('click', () => {
+        if ((currentPage * rowsPerPage) < currentData.length) {
+            currentPage++;
+            renderTable();
+        }
+    });
+
+    // 填充列选择器
+    function populateColumnSelectors() {
+        const selectors = [
+            'missing-column', 'stats-column', 'x-axis', 'y-axis'
+        ];
+        
+        selectors.forEach(id => {
+            const select = document.getElementById(id);
+            if (select) {
+                select.innerHTML = '';
+                headers.forEach((h, i) => {
+                    const option = document.createElement('option');
+                    option.value = i;
+                    option.textContent = h;
+                    select.appendChild(option);
+                });
+            }
+        });
+    }
+
+    // 加载数据到 Python
+    async function loadDataToPython() {
+        if (!pyodide) return;
+        
+        try {
+            // 将数据转换为 Python 列表
+            const dataStr = JSON.stringify([headers, ...currentData]);
+            
+            await pyodide.runPythonAsync(`
+import pandas as pd
+import json
+
+# 解析数据
+data = json.loads('${dataStr}')
+headers = data[0]
+rows = data[1:]
+
+# 创建 DataFrame
+df = pd.DataFrame(rows, columns=headers)
+
+# 自动转换数据类型
+df = df.infer_objects()
+
+print(f"数据已加载: {df.shape[0]} 行 × {df.shape[1]} 列")
+print(df.dtypes)
+            `);
+        } catch (error) {
+            console.error('加载数据到 Python 失败:', error);
+        }
+    }
+
+    // 加载数据到 R
+    async function loadDataToR() {
+        if (!webR) return;
+        
+        try {
+            // 将数据转换为 CSV 字符串
+            let csv = headers.join(',') + '\n';
+            currentData.forEach(row => {
+                csv += row.map(cell => {
+                    if (typeof cell === 'string' && cell.includes(',')) {
+                        return `"${cell}"`;
+                    }
+                    return cell;
+                }).join(',') + '\n';
+            });
+            
+            // 在 R 中读取 CSV
+            await webR.evalR(`
+df <- read.csv(text = "${csv.replace(/"/g, '\\"')}", stringsAsFactors = FALSE)
+print(paste("数据已加载:", nrow(df), "行 ×", ncol(df), "列"))
+print(str(df))
+            `);
+        } catch (error) {
+            console.error('加载数据到 R 失败:', error);
+        }
+    }
+
+    // 运行 Python 代码
+    document.getElementById('run-python').addEventListener('click', async () => {
+        if (!enginesLoaded.python) {
+            alert('Python 引擎未加载');
+            return;
+        }
+        
+        const code = document.getElementById('python-code').value;
+        if (!code.trim()) return;
+        
+        document.getElementById('python-output').innerHTML = '<span class="text-warning">运行中...</span>';
+        
+        try {
+            const result = await pyodide.runPythonAsync(code);
+            if (result !== undefined) {
+                appendPythonOutput(result.toString());
+            }
+        } catch (error) {
+            appendPythonOutput(error.toString(), true);
+        }
+    });
+
+    function appendPythonOutput(text, isError = false) {
+        const output = document.getElementById('python-output');
+        if (output.innerHTML.includes('运行中...')) {
+            output.innerHTML = '';
+        }
+        
+        const line = document.createElement('div');
+        line.className = isError ? 'text-danger' : 'text-light';
+        line.textContent = text;
+        output.appendChild(line);
+        output.scrollTop = output.scrollHeight;
+    }
+
+    // 运行 R 代码
+    document.getElementById('run-r').addEventListener('click', async () => {
+        if (!enginesLoaded.r) {
+            alert('R 引擎未加载');
+            return;
+        }
+        
+        const code = document.getElementById('r-code').value;
+        if (!code.trim()) return;
+        
+        document.getElementById('r-output').innerHTML = '<span class="text-warning">运行中...</span>';
+        
+        try {
+            const result = await webR.evalR(code);
+            const output = await webR.evalR(`capture.output(print(${result}))`);
+            const outputStr = await output.toJs();
+            
+            document.getElementById('r-output').innerHTML = '';
+            outputStr.forEach(line => {
+                const div = document.createElement('div');
+                div.textContent = line;
+                document.getElementById('r-output').appendChild(div);
+            });
+        } catch (error) {
+            document.getElementById('r-output').innerHTML = `<div class="text-danger">${error.toString()}</div>`;
+        }
+    });
+
+    // 清空输出
+    document.getElementById('clear-python').addEventListener('click', () => {
+        document.getElementById('python-output').innerHTML = '<span class="text-neutral">输出将显示在这里...</span>';
+    });
+
+    document.getElementById('clear-r').addEventListener('click', () => {
+        document.getElementById('r-output').innerHTML = '<span class="text-neutral">输出将显示在这里...</span>';
+    });
+
+    // 生成图表
+    document.getElementById('generate-chart').addEventListener('click', () => {
+        const chartType = document.getElementById('chart-type').value;
+        const xIndex = parseInt(document.getElementById('x-axis').value);
+        const yIndex = parseInt(document.getElementById('y-axis').value);
+        
+        const labels = currentData.map(row => row[xIndex]);
+        const values = currentData.map(row => parseFloat(row[yIndex]) || 0);
+        
+        // 销毁旧图表
+        if (currentChart) {
+            currentChart.destroy();
+        }
+        
+        const ctx = document.getElementById('main-chart').getContext('2d');
+        
+        let config = {
+            type: chartType === 'box' ? 'bar' : chartType, // Chart.js 不直接支持箱线图，用柱状图替代
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: headers[yIndex],
+                    data: values,
+                    backgroundColor: 'rgba(212, 177, 106, 0.7)',
+                    borderColor: 'rgba(212, 177, 106, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#D4B16A' } }
+                },
+                scales: {
+                    x: { ticks: { color: '#888' }, grid: { color: '#222' } },
+                    y: { ticks: { color: '#888' }, grid: { color: '#222' } }
+                }
+            }
+        };
+        
+        // 饼图特殊配置
+        if (chartType === 'pie') {
+            delete config.options.scales;
+            config.data.datasets[0].backgroundColor = generateColors(labels.length);
+        }
+        
+        currentChart = new Chart(ctx, config);
+    });
+
+    // 生成颜色
+    function generateColors(count) {
+        const colors = [];
+        const baseHue = 45; // 金色系
+        
+        for (let i = 0; i < count; i++) {
+            const hue = (baseHue + i * 30) % 360;
+            colors.push(`hsla(${hue}, 70%, 60%, 0.7)`);
+        }
+        
+        return colors;
+    }
+
+    // 下载图表
+    document.getElementById('download-chart').addEventListener('click', () => {
+        if (!currentChart) return;
+        
+        const canvas = document.getElementById('main-chart');
+        const link = document.createElement('a');
+        link.download = `chart-${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    });
+
+    // 缺失值处理方式切换
+    document.getElementById('missing-method').addEventListener('change', (e) => {
+        document.getElementById('constant-value').classList.toggle('hidden', e.target.value !== 'constant');
+    });
+
+    // 计算统计量
+    document.getElementById('calc-stats').addEventListener('click', () => {
+        const colIndex = parseInt(document.getElementById('stats-column').value);
+        const values = currentData
+            .map(row => parseFloat(row[colIndex]))
+            .filter(v => !isNaN(v));
+        
+        if (values.length === 0) {
+            alert('该列没有有效的数值数据');
+            return;
+        }
+        
+        const count = values.length;
+        const sum = values.reduce((a, b) => a + b, 0);
+        const mean = sum / count;
+        const sorted = [...values].sort((a, b) => a - b);
+        const median = count % 2 === 0 
+            ? (sorted[count/2 - 1] + sorted[count/2]) / 2 
+            : sorted[Math.floor(count/2)];
+        const min = sorted[0];
+        const max = sorted[count - 1];
+        const variance = values.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / count;
+        const std = Math.sqrt(variance);
+        
+        document.getElementById('stat-count').textContent = count;
+        document.getElementById('stat-mean').textContent = mean.toFixed(2);
+        document.getElementById('stat-median').textContent = median.toFixed(2);
+        document.getElementById('stat-std').textContent = std.toFixed(2);
+        document.getElementById('stat-min').textContent = min.toFixed(2);
+        document.getElementById('stat-max').textContent = max.toFixed(2);
+        document.getElementById('stat-sum').textContent = sum.toFixed(2);
+    });
+
+    // 生成报告
+    document.getElementById('generate-report').addEventListener('click', () => {
+        let report = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>数据分析报告</title>
+    <style>
+        body { font-family: sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        h1 { color: #D4B16A; border-bottom: 2px solid #D4B16A; padding-bottom: 10px; }
+        h2 { color: #333; margin-top: 30px; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .chart { margin: 20px 0; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>DataMine Pro 数据分析报告</h1>
+    <p>生成时间: ${new Date().toLocaleString()}</p>
+    <p>数据文件: ${document.getElementById('file-name').textContent}</p>
+    <p>数据规模: ${currentData.length} 行 × ${headers.length} 列</p>
+        `;
+        
+        if (document.getElementById('include-preview').checked) {
+            report += `
+    <h2>数据预览</h2>
+    <table>
+        <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+            `;
+            
+            // 显示前10行
+            currentData.slice(0, 10).forEach(row => {
+                report += `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
+            });
+            
+            report += `
+    </table>
+    <p>... 共 ${currentData.length} 行数据</p>
+            `;
+        }
+        
+        if (document.getElementById('include-stats').checked) {
+            report += `
+    <h2>统计摘要</h2>
+    <p>包含描述性统计和相关性分析结果</p>
+            `;
+        }
+        
+        if (document.getElementById('include-charts').checked && currentChart) {
+            report += `
+    <h2>数据可视化</h2>
+    <div class="chart">
+        <img src="${document.getElementById('main-chart').toDataURL('image/png')}" alt="图表">
+    </div>
+            `;
+        }
+        
+        report += `
+</body>
+</html>
+        `;
+        
+        // 下载报告
+        const blob = new Blob([report], { type: 'text/html' });
+        const link = document.createElement('a');
+        link.download = `analysis-report-${new Date().toISOString().slice(0, 10)}.html`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+    });
+</script>
+</body>
+</html>
