@@ -1,9 +1,18 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataMine Pro | 专业数据挖掘平台</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>小许数据分析 | 专业数据挖掘平台</title>
+    <!-- PWA / 移动端安装支持 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="小许分析">
+    <meta name="theme-color" content="#0A0A0A">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230A0A0A' width='100' height='100' rx='20'/><text x='50' y='68' text-anchor='middle' font-size='52' fill='%23D4B16A'>◆</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230A0A0A' width='100' height='100' rx='20'/><text x='50' y='68' text-anchor='middle' font-size='52' fill='%23D4B16A'>◆</text></svg>">
     <!-- 核心CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
@@ -13,7 +22,7 @@
     <!-- Pyodide (Python WebAssembly) -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <!-- WebR (R WebAssembly) -->
-    <script src="https://cdn.jsdelivr.net/npm/@r-wasm/webr@0.2.1/dist/webr.min.js"></script>
+    <!-- WebR 通过动态 import 加载，见 loadEngines -->
 
     <!-- 简奢风格配置 -->
     <script>
@@ -40,6 +49,9 @@
     </script>
 
     <style type="text/tailwindcss">
+        @media (max-width: 640px) {
+            input, select, textarea { font-size: 16px !important; }
+        }
         @layer utilities {
             .text-luxury { @apply text-gold tracking-wide; }
             .btn-luxury { @apply px-6 py-2.5 border border-gold text-gold hover:bg-gold hover:text-dark transition-all duration-500 text-sm; }
@@ -48,6 +60,8 @@
             .card-luxury { @apply bg-darker p-6 rounded-sm border border-gray-800 hover:border-gold/30 transition-all duration-500; }
             .section-padding { @apply py-20 md:py-28; }
             .code-editor { @apply bg-darker border border-gray-800 p-4 font-mono text-sm text-light rounded-sm focus:border-gold outline-none; }
+            .scroll-touch { -webkit-overflow-scrolling: touch; }
+            .min-touch { min-height: 44px; min-width: 44px; }
         }
     </style>
 </head>
@@ -65,6 +79,16 @@
             <a href="#engines" class="hover:text-gold transition-colors">分析引擎</a>
             <a href="#formats" class="hover:text-gold transition-colors">支持格式</a>
             <button id="start-analysis" class="btn-luxury">开始分析</button>
+        </div>
+        <!-- 移动端汉堡菜单 -->
+        <button id="hamburger-btn" class="md:hidden text-gold text-2xl p-2" aria-label="菜单">
+            <i class="fa fa-bars"></i>
+        </button>
+        <div id="mobile-menu" class="hidden md:hidden absolute top-full left-0 w-full bg-darker border-b border-gray-800 px-6 py-4 flex flex-col space-y-3 text-sm">
+            <a href="#features" class="hover:text-gold transition-colors py-2">核心功能</a>
+            <a href="#engines" class="hover:text-gold transition-colors py-2">分析引擎</a>
+            <a href="#formats" class="hover:text-gold transition-colors py-2">支持格式</a>
+            <button id="start-analysis-mobile" class="btn-luxury w-full">开始分析</button>
         </div>
     </div>
 </nav>
@@ -282,28 +306,104 @@
             </div>
         </div>
 
-        <!-- 功能标签 -->
-        <div class="flex border-b border-gray-800 mb-8 overflow-x-auto scrollbar-hide">
-            <button class="py-3 px-6 text-gold border-b-2 border-gold tab-btn" data-target="preview">数据预览</button>
-            <button class="py-3 px-6 text-neutral tab-btn" data-target="cleaning">数据清洗</button>
-            <button class="py-3 px-6 text-neutral tab-btn" data-target="statistics">统计分析</button>
-            <button class="py-3 px-6 text-neutral tab-btn" data-target="python">Python 分析</button>
-            <button class="py-3 px-6 text-neutral tab-btn" data-target="r">R 分析</button>
-            <button class="py-3 px-6 text-neutral tab-btn" data-target="visualization">可视化</button>
-            <button class="py-3 px-6 text-neutral tab-btn" data-target="report">生成报告</button>
+        <!-- 功能标签 - 桌面端 -->
+        <div class="hidden sm:flex border-b border-gray-800 mb-8 overflow-x-auto scrollbar-hide scroll-touch text-sm" id="main-tabs-desktop">
+            <button class="py-3 px-4 min-touch text-gold border-b-2 border-gold tab-btn whitespace-nowrap" data-target="preview">数据管理</button>
+            <button class="py-3 px-4 min-touch text-neutral tab-btn whitespace-nowrap" data-target="statistics">统计分析</button>
+            <button class="py-3 px-4 min-touch text-neutral tab-btn whitespace-nowrap" data-target="ml">机器学习</button>
+            <button class="py-3 px-4 min-touch text-neutral tab-btn whitespace-nowrap" data-target="anomaly">异常检测</button>
+            <button class="py-3 px-4 min-touch text-neutral tab-btn whitespace-nowrap" data-target="visualization">可视化</button>
+            <button class="py-3 px-4 min-touch text-neutral tab-btn whitespace-nowrap" data-target="python">Python</button>
+            <button class="py-3 px-4 min-touch text-neutral tab-btn whitespace-nowrap" data-target="r">R</button>
+            <button class="py-3 px-4 min-touch text-neutral tab-btn whitespace-nowrap" data-target="auto-analysis">智能分析</button>
+            <button class="py-3 px-4 min-touch text-neutral tab-btn whitespace-nowrap" data-target="report">报告</button>
+        </div>
+        <!-- 功能标签 - 移动端下拉选择 -->
+        <div class="sm:hidden mb-6">
+            <select id="mobile-tab-select" class="w-full bg-darker border border-gray-800 p-3 rounded-sm text-light text-base">
+                <option value="preview">数据管理</option>
+                <option value="statistics">统计分析</option>
+                <option value="ml">机器学习</option>
+                <option value="anomaly">异常检测</option>
+                <option value="visualization">可视化</option>
+                <option value="python">Python</option>
+                <option value="r">R</option>
+                <option value="auto-analysis">智能分析</option>
+                <option value="report">报告</option>
+            </select>
         </div>
 
-        <!-- 内容面板 -->
+        <!-- ==================== 数据管理 ==================== -->
         <div class="tab-content" id="preview">
-            <div class="card-luxury">
+            <!-- 数据筛选器 -->
+            <div class="card-luxury mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-light"><i class="fa fa-filter text-gold mr-2"></i>数据筛选</h3>
+                    <button id="clear-filter" class="text-gold text-xs hover:underline hidden">清除筛选</button>
+                </div>
+                <div class="flex flex-wrap gap-3 items-end" id="filter-area">
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">列</label>
+                        <select id="filter-column" class="bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm w-full sm:w-32"></select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">条件</label>
+                        <select id="filter-op" class="bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm w-full sm:w-28">
+                            <option value="eq">等于</option><option value="neq">不等于</option>
+                            <option value="gt">大于</option><option value="lt">小于</option>
+                            <option value="gte">大于等于</option><option value="lte">小于等于</option>
+                            <option value="contains">包含</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">值</label>
+                        <input type="text" id="filter-value" class="bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm w-full sm:w-32" placeholder="输入值...">
+                    </div>
+                    <button id="apply-filter" class="px-4 py-2 bg-gold text-dark text-sm rounded-sm hover:bg-gold/80">应用</button>
+                </div>
+                <div id="filter-info" class="hidden mt-3 text-xs text-neutral">
+                    已筛选: <span id="filter-count" class="text-gold"></span> 条 / 共 <span id="filter-total"></span> 条
+                </div>
+            </div>
+
+            <!-- 列操作 -->
+            <div class="card-luxury mb-6">
+                <h3 class="text-lg font-light mb-4"><i class="fa fa-columns text-gold mr-2"></i>列操作</h3>
+                <div class="flex flex-wrap gap-4 items-end">
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">操作</label>
+                        <select id="col-op" class="bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm w-full sm:w-28">
+                            <option value="rename">重命名</option>
+                            <option value="derive">派生列</option>
+                            <option value="delete">删除列</option>
+                        </select>
+                    </div>
+                    <div id="col-rename-div">
+                        <label class="block text-neutral text-xs mb-1">原列名</label>
+                        <select id="col-rename-from" class="bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm w-full sm:w-32"></select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1" id="col-target-label">新名称/公式</label>
+                        <input type="text" id="col-target-val" class="bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm w-full sm:w-40" placeholder="新列名 或 销售额*0.1">
+                    </div>
+                    <button id="apply-col-op" class="px-4 py-2 bg-gold text-dark text-sm rounded-sm hover:bg-gold/80">执行</button>
+                </div>
+                <p class="text-neutral text-xs mt-2">派生公式示例: <code class="bg-dark px-1 rounded">销售额-广告费用</code> 或 <code class="bg-dark px-1 rounded">订单量/转化率</code></p>
+            </div>
+
+            <!-- 数据表格 -->
+            <div class="card-luxury mb-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-light">数据表格</h3>
-                    <div class="flex gap-2">
+                    <h3 class="text-lg font-light"><i class="fa fa-table text-gold mr-2"></i>数据表格</h3>
+                    <div class="flex gap-2 flex-wrap">
                         <button id="show-missing" class="btn-secondary text-xs">缺失值统计</button>
                         <button id="show-types" class="btn-secondary text-xs">数据类型</button>
+                        <button id="export-csv" class="btn-secondary text-xs"><i class="fa fa-download mr-1"></i>CSV</button>
+                        <button id="export-json" class="btn-secondary text-xs"><i class="fa fa-download mr-1"></i>JSON</button>
+                        <button id="export-xlsx" class="btn-secondary text-xs"><i class="fa fa-download mr-1"></i>Excel</button>
                     </div>
                 </div>
-                <div class="overflow-auto max-h-[500px]">
+                <div class="overflow-auto scroll-touch max-h-[400px]">
                     <table id="data-table" class="w-full text-sm"></table>
                 </div>
                 <div id="pagination" class="mt-4 flex justify-between items-center text-neutral text-sm">
@@ -314,98 +414,207 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="tab-content hidden" id="cleaning">
+            <!-- 数据清洗 -->
             <div class="grid md:grid-cols-2 gap-6">
                 <div class="card-luxury">
-                    <h3 class="text-xl font-light mb-4">缺失值处理</h3>
-                    <div class="space-y-4">
+                    <h3 class="text-lg font-light mb-4"><i class="fa fa-eraser text-gold mr-2"></i>缺失值处理</h3>
+                    <div class="space-y-3">
                         <div>
-                            <label class="block text-neutral text-sm mb-2">选择列</label>
-                            <select id="missing-column" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light"></select>
+                            <label class="block text-neutral text-xs mb-1">选择列</label>
+                            <select id="missing-column" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
                         </div>
                         <div>
-                            <label class="block text-neutral text-sm mb-2">处理方式</label>
-                            <select id="missing-method" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light">
-                                <option value="drop">删除行</option>
-                                <option value="mean">均值填充</option>
-                                <option value="median">中位数填充</option>
-                                <option value="mode">众数填充</option>
+                            <label class="block text-neutral text-xs mb-1">处理方式</label>
+                            <select id="missing-method" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm">
+                                <option value="drop">删除行</option><option value="mean">均值填充</option>
+                                <option value="median">中位数填充</option><option value="mode">众数填充</option>
                                 <option value="constant">常数填充</option>
                             </select>
                         </div>
                         <div id="constant-value" class="hidden">
-                            <label class="block text-neutral text-sm mb-2">填充值</label>
-                            <input type="text" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light">
+                            <input type="text" id="constant-value-input" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm" placeholder="填充值">
                         </div>
-                        <button id="apply-missing" class="btn-primary w-full">应用处理</button>
+                        <button id="apply-missing" class="btn-primary w-full text-sm">应用处理</button>
                     </div>
                 </div>
-                
                 <div class="card-luxury">
-                    <h3 class="text-xl font-light mb-4">重复值处理</h3>
-                    <div class="space-y-4">
-                        <p class="text-neutral text-sm">检测并删除数据中的重复行</p>
-                        <button id="check-duplicates" class="btn-secondary w-full">检测重复值</button>
-                        <div id="duplicate-result" class="hidden p-3 bg-dark rounded-sm border border-gray-800">
-                            <p>发现 <span id="duplicate-count" class="text-gold"></span> 条重复数据</p>
+                    <h3 class="text-lg font-light mb-4"><i class="fa fa-copy text-gold mr-2"></i>重复值处理</h3>
+                    <div class="space-y-3">
+                        <button id="check-duplicates" class="btn-secondary w-full text-sm">检测重复值</button>
+                        <div id="duplicate-result" class="hidden p-3 bg-dark rounded-sm border border-gray-800 text-sm">
+                            发现 <span id="duplicate-count" class="text-gold"></span> 条重复数据
                         </div>
-                        <button id="remove-duplicates" class="btn-primary w-full hidden">删除重复值</button>
+                        <button id="remove-duplicates" class="btn-primary w-full text-sm hidden">删除重复值</button>
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- ==================== 统计分析 ==================== -->
         <div class="tab-content hidden" id="statistics">
-            <div class="grid md:grid-cols-2 gap-6">
+            <div class="grid md:grid-cols-2 gap-6 mb-6">
                 <div class="card-luxury">
-                    <h3 class="text-xl font-light mb-4">描述性统计</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-neutral text-sm mb-2">选择数值列</label>
-                            <select id="stats-column" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light"></select>
-                        </div>
-                        <button id="calc-stats" class="btn-primary w-full">计算统计量</button>
+                    <h3 class="text-lg font-light mb-4"><i class="fa fa-calculator text-gold mr-2"></i>描述性统计</h3>
+                    <div class="space-y-3">
+                        <select id="stats-column" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                        <button id="calc-stats" class="btn-primary w-full text-sm">计算统计量</button>
                         <div id="stats-result" class="mt-4 space-y-2 text-sm">
-                            <div class="flex justify-between py-2 border-b border-gray-800">
-                                <span class="text-neutral">样本数</span>
-                                <span id="stat-count">-</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-800">
-                                <span class="text-neutral">均值</span>
-                                <span id="stat-mean">-</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-800">
-                                <span class="text-neutral">中位数</span>
-                                <span id="stat-median">-</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-800">
-                                <span class="text-neutral">标准差</span>
-                                <span id="stat-std">-</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-800">
-                                <span class="text-neutral">最小值</span>
-                                <span id="stat-min">-</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-800">
-                                <span class="text-neutral">最大值</span>
-                                <span id="stat-max">-</span>
-                            </div>
-                            <div class="flex justify-between py-2">
-                                <span class="text-neutral">总和</span>
-                                <span id="stat-sum">-</span>
-                            </div>
+                            <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-neutral">样本数</span><span id="stat-count">-</span></div>
+                            <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-neutral">均值</span><span id="stat-mean">-</span></div>
+                            <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-neutral">中位数</span><span id="stat-median">-</span></div>
+                            <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-neutral">标准差</span><span id="stat-std">-</span></div>
+                            <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-neutral">最小值</span><span id="stat-min">-</span></div>
+                            <div class="flex justify-between py-1 border-b border-gray-800"><span class="text-neutral">最大值</span><span id="stat-max">-</span></div>
+                            <div class="flex justify-between py-1"><span class="text-neutral">总和</span><span id="stat-sum">-</span></div>
                         </div>
                     </div>
                 </div>
-                
                 <div class="card-luxury">
-                    <h3 class="text-xl font-light mb-4">相关性分析</h3>
-                    <button id="calc-correlation" class="btn-primary w-full mb-4">计算相关系数</button>
-                    <div class="overflow-auto max-h-[400px]">
-                        <table id="correlation-table" class="w-full text-sm"></table>
+                    <h3 class="text-lg font-light mb-4"><i class="fa fa-link text-gold mr-2"></i>相关性分析</h3>
+                    <button id="calc-correlation" class="btn-primary w-full mb-4 text-sm">计算相关系数</button>
+                    <div class="overflow-auto max-h-[350px]"><table id="correlation-table" class="w-full text-sm"></table></div>
+                </div>
+            </div>
+
+            <!-- 假设检验 -->
+            <div class="card-luxury mb-6">
+                <h3 class="text-lg font-light mb-4"><i class="fa fa-flask text-gold mr-2"></i>假设检验 (需 Python 引擎)</h3>
+                <div class="grid md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">检验类型</label>
+                        <select id="test-type" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm">
+                            <option value="ttest">独立样本 t 检验</option>
+                            <option value="chisq">卡方检验</option>
+                            <option value="anova">单因素 ANOVA</option>
+                        </select>
                     </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">列 1</label>
+                        <select id="test-col1" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                    </div>
+                    <div id="test-col2-div">
+                        <label class="block text-neutral text-xs mb-1">列 2</label>
+                        <select id="test-col2" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                    </div>
+                </div>
+                <button id="run-test" class="btn-primary text-sm mt-4">执行检验</button>
+                <div id="test-result" class="mt-4 p-3 bg-dark rounded-sm border border-gray-800 font-mono text-sm hidden"></div>
+            </div>
+
+            <!-- 透视表 -->
+            <div class="card-luxury mb-6">
+                <h3 class="text-lg font-light mb-4"><i class="fa fa-th text-gold mr-2"></i>数据透视表</h3>
+                <div class="grid md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">行字段</label>
+                        <select id="pivot-row" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">列字段 (可选)</label>
+                        <select id="pivot-col" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"><option value="">无</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">值字段</label>
+                        <select id="pivot-val" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">聚合方式</label>
+                        <select id="pivot-agg" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm">
+                            <option value="sum">求和</option><option value="mean">均值</option><option value="count">计数</option>
+                            <option value="min">最小值</option><option value="max">最大值</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="run-pivot" class="btn-primary text-sm">生成透视表</button>
+                <div class="overflow-auto scroll-touch max-h-[400px] mt-4">
+                    <table id="pivot-table" class="w-full text-sm"></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 机器学习 ==================== -->
+        <div class="tab-content hidden" id="ml">
+            <div class="card-luxury mb-6">
+                <h3 class="text-lg font-light mb-4"><i class="fa fa-cogs text-gold mr-2"></i>机器学习建模 (需 Python 引擎)</h3>
+                <div class="grid md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">模型</label>
+                        <select id="ml-model" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm">
+                            <option value="linear">线性回归</option>
+                            <option value="rf">随机森林</option>
+                            <option value="kmeans">K-Means 聚类</option>
+                            <option value="dtree">决策树</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">特征列 (X)</label>
+                        <select id="ml-features" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm" multiple size="3"></select>
+                        <span class="text-neutral text-xs">Ctrl+点击多选</span>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1" id="ml-target-label">目标列 (Y)</label>
+                        <select id="ml-target" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                    </div>
+                    <div class="flex items-end">
+                        <button id="run-ml" class="btn-primary w-full text-sm">训练模型</button>
+                    </div>
+                </div>
+                <p id="ml-status" class="text-neutral text-xs mb-3">聚类分析无需目标列</p>
+                <div id="ml-result" class="p-4 bg-dark rounded-sm border border-gray-800 font-mono text-sm hidden"></div>
+            </div>
+        </div>
+
+        <!-- ==================== 异常检测 ==================== -->
+        <div class="tab-content hidden" id="anomaly">
+            <div class="card-luxury mb-6">
+                <h3 class="text-lg font-light mb-4"><i class="fa fa-exclamation-triangle text-gold mr-2"></i>异常值检测</h3>
+                <div class="grid md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">检测方法</label>
+                        <select id="anomaly-method" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm">
+                            <option value="iqr">IQR (四分位距法)</option>
+                            <option value="zscore">Z-Score (标准分数法)</option>
+                            <option value="isolation">Isolation Forest (需 Python)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">选择列</label>
+                        <select id="anomaly-column" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">阈值</label>
+                        <input type="number" id="anomaly-threshold" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm" value="1.5" step="0.1">
+                        <span class="text-neutral text-xs" id="anomaly-threshold-label">IQR 倍数</span>
+                    </div>
+                </div>
+                <button id="run-anomaly" class="btn-primary text-sm">检测异常值</button>
+                <div id="anomaly-result" class="mt-4 p-4 bg-dark rounded-sm border border-gray-800 text-sm hidden"></div>
+            </div>
+
+            <!-- 时间序列分析 -->
+            <div class="card-luxury mb-6">
+                <h3 class="text-lg font-light mb-4"><i class="fa fa-line-chart text-gold mr-2"></i>时间序列分析</h3>
+                <div class="grid md:grid-cols-4 gap-4 mb-4">
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">日期列</label>
+                        <select id="ts-date-col" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">数值列</label>
+                        <select id="ts-val-col" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">窗口大小</label>
+                        <input type="number" id="ts-window" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm" value="3" min="2" max="10">
+                    </div>
+                    <div class="flex items-end">
+                        <button id="run-timeseries" class="btn-primary w-full text-sm">分析</button>
+                    </div>
+                </div>
+                <div id="ts-result" class="space-y-3 hidden">
+                    <div class="grid grid-cols-3 gap-4 text-center" id="ts-stats"></div>
+                    <div class="h-[300px]"><canvas id="ts-chart"></canvas></div>
                 </div>
             </div>
         </div>
@@ -470,41 +679,53 @@ summary(model)"></textarea>
         </div>
 
         <div class="tab-content hidden" id="visualization">
-            <div class="grid md:grid-cols-3 gap-6">
-                <div class="card-luxury">
-                    <h3 class="text-xl font-light mb-4">图表设置</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-neutral text-sm mb-2">图表类型</label>
-                            <select id="chart-type" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light">
-                                <option value="bar">柱状图</option>
-                                <option value="line">折线图</option>
-                                <option value="pie">饼图</option>
-                                <option value="scatter">散点图</option>
-                                <option value="histogram">直方图</option>
-                                <option value="box">箱线图</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-neutral text-sm mb-2">X轴/标签</label>
-                            <select id="x-axis" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light"></select>
-                        </div>
-                        <div>
-                            <label class="block text-neutral text-sm mb-2">Y轴/数值</label>
-                            <select id="y-axis" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light"></select>
-                        </div>
-                        <button id="generate-chart" class="btn-primary w-full">生成图表</button>
+            <!-- 图表生成 -->
+            <div class="card-luxury mb-6">
+                <h3 class="text-lg font-light mb-4"><i class="fa fa-picture-o text-gold mr-2"></i>图表生成器</h3>
+                <div class="grid md:grid-cols-4 gap-4 items-end">
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">图表类型</label>
+                        <select id="chart-type" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm">
+                            <option value="bar">柱状图</option><option value="line">折线图</option>
+                            <option value="pie">饼图</option><option value="scatter">散点图</option>
+                            <option value="histogram">直方图</option><option value="box">箱线图</option>
+                            <option value="radar">雷达图</option><option value="area">面积图</option>
+                            <option value="bubble">气泡图</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">X轴/标签</label>
+                        <select id="x-axis" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                    </div>
+                    <div>
+                        <label class="block text-neutral text-xs mb-1">Y轴/数值</label>
+                        <select id="y-axis" class="w-full bg-darker border border-gray-800 p-2 rounded-sm text-light text-sm"></select>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="generate-chart" class="btn-primary text-sm flex-1">生成图表</button>
+                        <button id="smart-chart" class="btn-secondary text-sm" title="智能推荐图表">智能推荐</button>
                     </div>
                 </div>
-                <div class="md:col-span-2 card-luxury">
-                    <h3 class="text-xl font-light mb-4">图表展示</h3>
-                    <div class="h-[400px]">
-                        <canvas id="main-chart"></canvas>
-                    </div>
+            </div>
+            <div class="grid md:grid-cols-3 gap-6 mb-6">
+                <div class="card-luxury md:col-span-2">
+                    <div class="h-[300px] sm:h-[350px] lg:h-[400px]"><canvas id="main-chart"></canvas></div>
                     <div class="flex justify-end mt-4 gap-2">
-                        <button id="download-chart" class="btn-secondary text-sm">下载图表</button>
+                        <button id="download-chart" class="btn-secondary text-xs">下载 PNG</button>
                     </div>
                 </div>
+                <div class="card-luxury">
+                    <h3 class="text-lg font-light mb-4">图表列表</h3>
+                    <div id="chart-list" class="space-y-2 max-h-[350px] overflow-auto text-xs text-neutral"></div>
+                    <button id="clear-charts" class="btn-secondary w-full text-xs mt-3">清除全部</button>
+                </div>
+            </div>
+
+            <!-- 仪表盘 -->
+            <div class="card-luxury">
+                <h3 class="text-lg font-light mb-4"><i class="fa fa-dashboard text-gold mr-2"></i>数据仪表盘</h3>
+                <button id="build-dashboard" class="btn-primary text-sm mb-4">一键生成仪表盘</button>
+                <div id="dashboard-grid" class="grid md:grid-cols-2 gap-4"></div>
             </div>
         </div>
 
@@ -535,6 +756,70 @@ summary(model)"></textarea>
                 </div>
             </div>
         </div>
+
+        <div class="tab-content hidden" id="auto-analysis">
+            <div class="card-luxury mb-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h3 class="text-xl font-light mb-2">一键智能分析</h3>
+                        <p class="text-neutral text-sm">自动调用 Python + R 双引擎，对数据进行全面分析并生成洞察</p>
+                    </div>
+                    <button id="run-auto-analysis" class="btn-primary">
+                        <i class="fa fa-magic mr-2"></i>开始智能分析
+                    </button>
+                </div>
+            </div>
+
+            <div id="auto-analysis-status" class="card-luxury mb-6 hidden">
+                <div class="flex items-center">
+                    <div class="w-3 h-3 rounded-full bg-warning animate-pulse mr-3"></div>
+                    <span id="auto-status-text">分析进行中...</span>
+                </div>
+                <div class="mt-3 h-1 bg-gray-800 rounded-full overflow-hidden">
+                    <div id="auto-progress-bar" class="h-full bg-gold w-0 transition-all duration-500"></div>
+                </div>
+            </div>
+
+            <div id="auto-analysis-results" class="space-y-6 hidden">
+                <!-- 数据概览 -->
+                <div class="card-luxury">
+                    <h3 class="text-lg font-light mb-4">
+                        <i class="fa fa-table text-gold mr-2"></i>数据概览
+                    </h3>
+                    <div id="auto-overview" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center"></div>
+                </div>
+
+                <!-- Python 分析 -->
+                <div class="card-luxury">
+                    <h3 class="text-lg font-light mb-4">
+                        <i class="fa fa-python text-gold mr-2"></i>Python 分析结果
+                    </h3>
+                    <div id="auto-python-results" class="space-y-4"></div>
+                </div>
+
+                <!-- R 分析 -->
+                <div class="card-luxury">
+                    <h3 class="text-lg font-light mb-4">
+                        <i class="fa fa-r text-gold mr-2"></i>R 分析结果
+                    </h3>
+                    <div id="auto-r-results" class="space-y-4"></div>
+                </div>
+
+                <!-- 数据洞察 -->
+                <div class="card-luxury">
+                    <h3 class="text-lg font-light mb-4">
+                        <i class="fa fa-lightbulb-o text-gold mr-2"></i>数据洞察
+                    </h3>
+                    <div id="auto-insights" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <div id="auto-analysis-empty" class="card-luxury text-center py-12">
+                <i class="fa fa-bar-chart text-gold text-4xl mb-4 opacity-50"></i>
+                <p class="text-neutral">请先加载数据，然后点击"开始智能分析"</p>
+                <p class="text-neutral text-sm mt-2">系统将自动使用 Python 和 R 双引擎进行全面分析</p>
+            </div>
+        </div>
     </div>
 </section>
 
@@ -553,11 +838,66 @@ summary(model)"></textarea>
     let currentPage = 1;
     const rowsPerPage = 20;
     let currentChart = null;
-    let enginesLoaded = { python: false, r: false };
+    let enginesLoaded = { python: null, r: null };
+
+    let enginesPromise = null;
+
+    // ===== 移动端汉堡菜单 =====
+    document.addEventListener('DOMContentLoaded', () => {
+        const hamburger = document.getElementById('hamburger-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        if (hamburger && mobileMenu) {
+            hamburger.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+                const icon = hamburger.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-bars');
+                    icon.classList.toggle('fa-times');
+                }
+            });
+            // 点击菜单链接后自动关闭
+            mobileMenu.querySelectorAll('a, button').forEach(el => {
+                el.addEventListener('click', () => {
+                    mobileMenu.classList.add('hidden');
+                    const icon = hamburger.querySelector('i');
+                    if (icon) { icon.classList.remove('fa-times'); icon.classList.add('fa-bars'); }
+                });
+            });
+        }
+        // 注入 Manifest
+        const manifest = {
+            name: '小许数据分析',
+            short_name: '小许分析',
+            description: '专业数据挖掘平台 - Python + R 双引擎',
+            start_url: '.',
+            display: 'standalone',
+            background_color: '#0A0A0A',
+            theme_color: '#0A0A0A',
+            orientation: 'any',
+            icons: [{
+                src: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect fill="#0A0A0A" width="512" height="512" rx="80"/><text x="256" y="330" text-anchor="middle" font-size="280" fill="#D4B16A">◆</text></svg>'),
+                sizes: '512x512',
+                type: 'image/svg+xml',
+                purpose: 'any maskable'
+            }]
+        };
+        const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = URL.createObjectURL(blob);
+        document.head.appendChild(link);
+    });
 
     // 页面切换
     document.getElementById('start-btn').addEventListener('click', startAnalysis);
     document.getElementById('start-analysis').addEventListener('click', startAnalysis);
+    document.getElementById('start-analysis-mobile').addEventListener('click', startAnalysis);
+    document.getElementById('demo-btn').addEventListener('click', () => {
+        startAnalysis();
+        waitForEngines().then(() => {
+            document.getElementById('load-demo').click();
+        });
+    });
     document.getElementById('back-home').addEventListener('click', () => location.reload());
 
     function startAnalysis() {
@@ -566,75 +906,213 @@ summary(model)"></textarea>
         loadEngines();
     }
 
+    function waitForEngines() {
+        return new Promise((resolve) => {
+            if (enginesLoaded.python === true || enginesLoaded.r === true) {
+                resolve();
+                return;
+            }
+            const check = setInterval(() => {
+                if (enginesLoaded.python === true || enginesLoaded.r === true) {
+                    clearInterval(check);
+                    resolve();
+                }
+                if (enginesLoaded.python === false && enginesLoaded.r === false) {
+                    clearInterval(check);
+                    resolve();
+                }
+            }, 300);
+        });
+    }
+
     // 加载分析引擎
     async function loadEngines() {
-        const progressBar = document.getElementById('engine-bar');
-        const progressText = document.getElementById('engine-progress');
-        const statusDot = document.querySelector('#engine-status .w-3');
+        if (enginesPromise) return enginesPromise;
+        enginesPromise = (async () => {
+        const statusDiv = document.getElementById('engine-status');
 
-        try {
-            // 加载 Pyodide
-            progressText.textContent = '20% - 加载 Python 引擎...';
-            progressBar.style.width = '20%';
-            
-            pyodide = await loadPyodide({
-                stdout: (text) => appendPythonOutput(text),
-                stderr: (text) => appendPythonOutput(text, true)
-            });
-            
-            // 安装常用包
-            progressText.textContent = '40% - 安装 Python 库...';
-            progressBar.style.width = '40%';
-            await pyodide.loadPackage(['pandas', 'numpy', 'matplotlib']);
-            
-            enginesLoaded.python = true;
-            
-            // 加载 WebR
-            progressText.textContent = '60% - 加载 R 引擎...';
-            progressBar.style.width = '60%';
-            
-            webR = new WebR.WebR();
-            await webR.init();
-            
-            enginesLoaded.r = true;
-            
-            // 完成
-            progressText.textContent = '100% - 引擎加载完成';
-            progressBar.style.width = '100%';
-            statusDot.classList.remove('bg-warning', 'animate-pulse');
-            statusDot.classList.add('bg-success');
-            
+        const updateStatus = (pythonOk, rOk, msg) => {
+            const pyDot = pythonOk ? '<span class="inline-block w-3 h-3 rounded-full bg-success mr-1"></span>' : (pythonOk === false ? '<span class="inline-block w-3 h-3 rounded-full bg-danger mr-1"></span>' : '<span class="inline-block w-3 h-3 rounded-full bg-warning animate-pulse mr-1"></span>');
+            const rDot = rOk ? '<span class="inline-block w-3 h-3 rounded-full bg-success mr-1"></span>' : (rOk === false ? '<span class="inline-block w-3 h-3 rounded-full bg-danger mr-1"></span>' : '<span class="inline-block w-3 h-3 rounded-full bg-warning animate-pulse mr-1"></span>');
+            statusDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <span>${pyDot} Python</span>
+                        <span>${rDot} R</span>
+                    </div>
+                    <span id="engine-progress" class="text-neutral text-sm">${msg}</span>
+                </div>
+                <div class="mt-3 h-1 bg-gray-800 rounded-full overflow-hidden">
+                    <div id="engine-bar" class="h-full bg-gold transition-all duration-500" style="width: ${(enginesLoaded.python ? 50 : 0) + (enginesLoaded.r ? 50 : 0)}%"></div>
+                </div>
+            `;
+        };
+
+        updateStatus(null, null, '准备加载...');
+
+        // 加载 Pyodide
+        const loadPy = (async () => {
+            try {
+                updateStatus(null, enginesLoaded.r, '正在下载 Python 引擎 (~20MB)...');
+                if (typeof loadPyodide === 'undefined') {
+                    throw new Error('Pyodide 脚本未加载，请检查 CDN 连接');
+                }
+                pyodide = await loadPyodide({
+                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/'
+                });
+                updateStatus(null, enginesLoaded.r, '正在安装 Python 库 (Pandas, Numpy)...');
+                await pyodide.loadPackage(['pandas', 'numpy', 'matplotlib']);
+                enginesLoaded.python = true;
+                updateStatus(true, enginesLoaded.r, 'Python 就绪');
+            } catch (e) {
+                console.error('Python 引擎加载失败:', e);
+                enginesLoaded.python = false;
+                updateStatus(false, enginesLoaded.r, 'Python 失败: ' + (e.message || '网络错误').slice(0, 30));
+            }
+        })();
+
+        // 加载 WebR
+        const loadR = (async () => {
+            try {
+                updateStatus(enginesLoaded.python, null, '检查 R CDN 连通性...');
+                // 预检查：先用 fetch 测试 CDN 是否可达
+                const testResp = await fetch('https://cdn.jsdelivr.net/npm/@r-wasm/webr@0.2.0/dist/webr.mjs', { method: 'HEAD', cache: 'no-cache' });
+                if (!testResp.ok) throw new Error('CDN 检查失败 HTTP ' + testResp.status);
+
+                updateStatus(enginesLoaded.python, null, '正在下载 R 引擎模块...');
+                const webRModule = await import('https://cdn.jsdelivr.net/npm/@r-wasm/webr@0.2.0/dist/webr.mjs');
+
+                updateStatus(enginesLoaded.python, null, '正在初始化 R 引擎（约 30 秒）...');
+                const rBaseUrl = 'https://cdn.jsdelivr.net/npm/@r-wasm/webr@0.2.0/dist/';
+                webR = new webRModule.WebR({
+                    baseUrl: rBaseUrl,
+                    serviceWorkerUrl: rBaseUrl + 'webr-serviceworker.js'
+                });
+                // 添加超时
+                const initPromise = webR.init();
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('初始化超时（>60 秒），网络可能较慢')), 60000)
+                );
+                await Promise.race([initPromise, timeoutPromise]);
+
+                enginesLoaded.r = true;
+                updateStatus(enginesLoaded.python, true, 'R 就绪');
+            } catch (e) {
+                console.error('R 引擎加载失败:', e);
+                enginesLoaded.r = false;
+                const errMsg = e.message || String(e);
+                updateStatus(enginesLoaded.python, false, 'R 失败: ' + (errMsg.length > 60 ? errMsg.slice(0, 60) + '...' : errMsg));
+            }
+        })();
+
+        await Promise.allSettled([loadPy, loadR]);
+
+        const pyOk = enginesLoaded.python;
+        const rOk = enginesLoaded.r;
+
+        if (pyOk && rOk) {
+            updateStatus(true, true, '全部就绪');
             setTimeout(() => {
-                document.getElementById('engine-status').innerHTML = `
+                statusDiv.innerHTML = `
                     <div class="flex items-center">
                         <div class="w-3 h-3 rounded-full bg-success mr-3"></div>
                         <span>Python 和 R 分析引擎已就绪</span>
                     </div>
                 `;
             }, 1000);
-            
-        } catch (error) {
-            console.error('引擎加载失败:', error);
-            statusDot.classList.remove('bg-warning', 'animate-pulse');
-            statusDot.classList.add('bg-danger');
-            progressText.textContent = '引擎加载失败，部分功能将不可用';
+        } else if (pyOk || rOk) {
+            const missing = pyOk ? 'R' : 'Python';
+            statusDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 rounded-full bg-warning mr-3"></div>
+                        <span>${missing} 引擎加载失败，${pyOk ? 'Python' : 'R'} 可用</span>
+                    </div>
+                    <button id="retry-engines" class="text-gold text-sm hover:underline">重试</button>
+                </div>
+            `;
+            document.getElementById('retry-engines').addEventListener('click', () => {
+                enginesPromise = null;
+                enginesLoaded.python = false;
+                enginesLoaded.r = false;
+                pyodide = null;
+                webR = null;
+                statusDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 rounded-full bg-warning animate-pulse mr-3"></div>
+                            <span>正在重新加载引擎...</span>
+                        </div>
+                        <span class="text-neutral text-sm">0%</span>
+                    </div>
+                    <div class="mt-3 h-1 bg-gray-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-gold w-0 transition-all duration-300"></div>
+                    </div>
+                `;
+                loadEngines();
+            });
+        } else {
+            statusDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="w-3 h-3 rounded-full bg-danger mr-3"></div>
+                        <span>引擎加载失败 — 数据预览/统计/图表仍可正常使用，Python/R 编辑器不可用</span>
+                    </div>
+                    <button id="retry-engines" class="text-gold text-sm hover:underline">重试</button>
+                </div>
+            `;
+            document.getElementById('retry-engines').addEventListener('click', () => {
+                enginesPromise = null;
+                enginesLoaded.python = false;
+                enginesLoaded.r = false;
+                pyodide = null;
+                webR = null;
+                statusDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 rounded-full bg-warning animate-pulse mr-3"></div>
+                            <span>正在重新加载引擎...</span>
+                        </div>
+                        <span class="text-neutral text-sm">0%</span>
+                    </div>
+                    <div class="mt-3 h-1 bg-gray-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-gold w-0 transition-all duration-300"></div>
+                    </div>
+                `;
+                loadEngines();
+            });
         }
+        })();
+        return enginesPromise;
     }
 
     // 标签切换
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => {
-                b.classList.remove('text-gold', 'border-b-2', 'border-gold');
-                b.classList.add('text-neutral');
-            });
-            btn.classList.add('text-gold', 'border-b-2', 'border-gold');
-            btn.classList.remove('text-neutral');
-            
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-            document.getElementById(btn.dataset.target).classList.remove('hidden');
+    function switchTab(targetId) {
+        // 更新桌面端标签按钮样式
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('text-gold', 'border-b-2', 'border-gold');
+            b.classList.add('text-neutral');
+            if (b.dataset.target === targetId) {
+                b.classList.add('text-gold', 'border-b-2', 'border-gold');
+                b.classList.remove('text-neutral');
+            }
         });
+        // 同步移动端下拉框
+        const mobileSelect = document.getElementById('mobile-tab-select');
+        if (mobileSelect) mobileSelect.value = targetId;
+        // 切换内容面板
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        const panel = document.getElementById(targetId);
+        if (panel) panel.classList.remove('hidden');
+    }
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.target));
     });
+    // 移动端下拉选择标签
+    const mobileTabSelect = document.getElementById('mobile-tab-select');
+    if (mobileTabSelect) {
+        mobileTabSelect.addEventListener('change', () => switchTab(mobileTabSelect.value));
+    }
 
     // 文件上传
     document.getElementById('upload-btn').addEventListener('click', () => {
@@ -715,9 +1193,13 @@ summary(model)"></textarea>
             alert('数据为空或格式不正确');
             return;
         }
-        
+
         headers = data[0];
         currentData = data.slice(1);
+        originalData = null;
+        document.getElementById('filter-info').classList.add('hidden');
+        document.getElementById('clear-filter').classList.add('hidden');
+        document.getElementById('filter-value').value = '';
         
         // 更新文件信息
         document.getElementById('file-name').textContent = fileName;
@@ -801,13 +1283,24 @@ summary(model)"></textarea>
     // 填充列选择器
     function populateColumnSelectors() {
         const selectors = [
-            'missing-column', 'stats-column', 'x-axis', 'y-axis'
+            'missing-column', 'stats-column', 'x-axis', 'y-axis',
+            'filter-column', 'col-rename-from', 'test-col1', 'test-col2',
+            'pivot-row', 'pivot-col', 'pivot-val', 'ml-features', 'ml-target',
+            'anomaly-column', 'ts-date-col', 'ts-val-col'
         ];
-        
+
         selectors.forEach(id => {
             const select = document.getElementById(id);
             if (select) {
+                const isPivotCol = id === 'pivot-col';
+                const keepFirst = isPivotCol && select.querySelector('option[value=""]');
                 select.innerHTML = '';
+                if (keepFirst) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = '无';
+                    select.appendChild(opt);
+                }
                 headers.forEach((h, i) => {
                     const option = document.createElement('option');
                     option.value = i;
@@ -821,25 +1314,24 @@ summary(model)"></textarea>
     // 加载数据到 Python
     async function loadDataToPython() {
         if (!pyodide) return;
-        
+
         try {
-            // 将数据转换为 Python 列表
-            const dataStr = JSON.stringify([headers, ...currentData]);
-            
+            pyodide.globals.set("_data_json", JSON.stringify([headers, ...currentData]));
+
             await pyodide.runPythonAsync(`
 import pandas as pd
 import json
 
-# 解析数据
-data = json.loads('${dataStr}')
-headers = data[0]
+data = json.loads(_data_json)
+cols = data[0]
 rows = data[1:]
 
-# 创建 DataFrame
-df = pd.DataFrame(rows, columns=headers)
-
-# 自动转换数据类型
-df = df.infer_objects()
+df = pd.DataFrame(rows, columns=cols)
+for col in df.columns:
+    try:
+        df[col] = pd.to_numeric(df[col])
+    except (ValueError, TypeError):
+        pass
 
 print(f"数据已加载: {df.shape[0]} 行 × {df.shape[1]} 列")
 print(df.dtypes)
@@ -852,34 +1344,53 @@ print(df.dtypes)
     // 加载数据到 R
     async function loadDataToR() {
         if (!webR) return;
-        
+
         try {
-            // 将数据转换为 CSV 字符串
-            let csv = headers.join(',') + '\n';
+            const lines = [];
+            lines.push(headers.map(h => csvEscapeR(h)).join(','));
             currentData.forEach(row => {
-                csv += row.map(cell => {
-                    if (typeof cell === 'string' && cell.includes(',')) {
-                        return `"${cell}"`;
-                    }
-                    return cell;
-                }).join(',') + '\n';
+                lines.push(row.map(cell => csvEscapeR(cell ?? '')).join(','));
             });
-            
-            // 在 R 中读取 CSV
-            await webR.evalR(`
-df <- read.csv(text = "${csv.replace(/"/g, '\\"')}", stringsAsFactors = FALSE)
-print(paste("数据已加载:", nrow(df), "行 ×", ncol(df), "列"))
-print(str(df))
-            `);
+            const csv = lines.join('\n');
+
+            if (webR.FS && webR.FS.writeFile) {
+                await webR.FS.writeFile('/home/web_user/data.csv', csv);
+                await webR.evalR(`
+df <- read.csv("/home/web_user/data.csv", stringsAsFactors = FALSE)
+cat(paste("数据已加载:", nrow(df), "行", ncol(df), "列\\n"))
+                `);
+            } else {
+                const escapedCsv = csv
+                    .replace(/\\/g, '\\\\')
+                    .replace(/"/g, '\\"')
+                    .replace(/\n/g, '\\n')
+                    .replace(/\r/g, '\\r');
+                await webR.evalR(`
+df <- read.csv(text = "${escapedCsv}", stringsAsFactors = FALSE)
+cat(paste("数据已加载:", nrow(df), "行", ncol(df), "列\\n"))
+                `);
+            }
         } catch (error) {
             console.error('加载数据到 R 失败:', error);
         }
     }
 
+    function csvEscapeR(val) {
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+            return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+    }
+
     // 运行 Python 代码
     document.getElementById('run-python').addEventListener('click', async () => {
-        if (!enginesLoaded.python) {
-            alert('Python 引擎未加载');
+        if (enginesLoaded.python === null) {
+            alert('Python 引擎正在加载中，请稍候...');
+            return;
+        }
+        if (enginesLoaded.python === false) {
+            alert('Python 引擎加载失败，请点击引擎状态栏的"重试"按钮');
             return;
         }
         
@@ -913,29 +1424,41 @@ print(str(df))
 
     // 运行 R 代码
     document.getElementById('run-r').addEventListener('click', async () => {
-        if (!enginesLoaded.r) {
-            alert('R 引擎未加载');
+        if (enginesLoaded.r === null) {
+            alert('R 引擎正在加载中，请稍候...');
             return;
         }
-        
+        if (enginesLoaded.r === false) {
+            alert('R 引擎加载失败，请点击引擎状态栏的"重试"按钮');
+            return;
+        }
+
         const code = document.getElementById('r-code').value;
         if (!code.trim()) return;
-        
+
         document.getElementById('r-output').innerHTML = '<span class="text-warning">运行中...</span>';
-        
+
+        const container = document.getElementById('r-output');
         try {
-            const result = await webR.evalR(code);
-            const output = await webR.evalR(`capture.output(print(${result}))`);
-            const outputStr = await output.toJs();
-            
-            document.getElementById('r-output').innerHTML = '';
-            outputStr.forEach(line => {
-                const div = document.createElement('div');
-                div.textContent = line;
-                document.getElementById('r-output').appendChild(div);
-            });
+            const result = await webR.evalR(`
+capture.output({
+${code}
+})
+            `);
+            const outputStr = await result.toJs();
+
+            container.innerHTML = '';
+            if (Array.isArray(outputStr) && outputStr.length > 0) {
+                outputStr.forEach(line => {
+                    const div = document.createElement('div');
+                    div.textContent = line;
+                    container.appendChild(div);
+                });
+            } else {
+                container.innerHTML = '<span class="text-neutral">代码执行完成，无输出</span>';
+            }
         } catch (error) {
-            document.getElementById('r-output').innerHTML = `<div class="text-danger">${error.toString()}</div>`;
+            container.innerHTML = `<div class="text-danger">${error.toString()}</div>`;
         }
     });
 
@@ -946,56 +1469,6 @@ print(str(df))
 
     document.getElementById('clear-r').addEventListener('click', () => {
         document.getElementById('r-output').innerHTML = '<span class="text-neutral">输出将显示在这里...</span>';
-    });
-
-    // 生成图表
-    document.getElementById('generate-chart').addEventListener('click', () => {
-        const chartType = document.getElementById('chart-type').value;
-        const xIndex = parseInt(document.getElementById('x-axis').value);
-        const yIndex = parseInt(document.getElementById('y-axis').value);
-        
-        const labels = currentData.map(row => row[xIndex]);
-        const values = currentData.map(row => parseFloat(row[yIndex]) || 0);
-        
-        // 销毁旧图表
-        if (currentChart) {
-            currentChart.destroy();
-        }
-        
-        const ctx = document.getElementById('main-chart').getContext('2d');
-        
-        let config = {
-            type: chartType === 'box' ? 'bar' : chartType, // Chart.js 不直接支持箱线图，用柱状图替代
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: headers[yIndex],
-                    data: values,
-                    backgroundColor: 'rgba(212, 177, 106, 0.7)',
-                    borderColor: 'rgba(212, 177, 106, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { labels: { color: '#D4B16A' } }
-                },
-                scales: {
-                    x: { ticks: { color: '#888' }, grid: { color: '#222' } },
-                    y: { ticks: { color: '#888' }, grid: { color: '#222' } }
-                }
-            }
-        };
-        
-        // 饼图特殊配置
-        if (chartType === 'pie') {
-            delete config.options.scales;
-            config.data.datasets[0].backgroundColor = generateColors(labels.length);
-        }
-        
-        currentChart = new Chart(ctx, config);
     });
 
     // 生成颜色
@@ -1033,24 +1506,24 @@ print(str(df))
         const values = currentData
             .map(row => parseFloat(row[colIndex]))
             .filter(v => !isNaN(v));
-        
+
         if (values.length === 0) {
             alert('该列没有有效的数值数据');
             return;
         }
-        
+
         const count = values.length;
         const sum = values.reduce((a, b) => a + b, 0);
         const mean = sum / count;
         const sorted = [...values].sort((a, b) => a - b);
-        const median = count % 2 === 0 
-            ? (sorted[count/2 - 1] + sorted[count/2]) / 2 
+        const median = count % 2 === 0
+            ? (sorted[count/2 - 1] + sorted[count/2]) / 2
             : sorted[Math.floor(count/2)];
         const min = sorted[0];
         const max = sorted[count - 1];
         const variance = values.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / count;
         const std = Math.sqrt(variance);
-        
+
         document.getElementById('stat-count').textContent = count;
         document.getElementById('stat-mean').textContent = mean.toFixed(2);
         document.getElementById('stat-median').textContent = median.toFixed(2);
@@ -1058,6 +1531,281 @@ print(str(df))
         document.getElementById('stat-min').textContent = min.toFixed(2);
         document.getElementById('stat-max').textContent = max.toFixed(2);
         document.getElementById('stat-sum').textContent = sum.toFixed(2);
+    });
+
+    // 缺失值统计
+    document.getElementById('show-missing').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+
+        const missingCounts = headers.map((h, i) => ({
+            column: h,
+            count: currentData.filter(row => {
+                const v = row[i];
+                return v === null || v === undefined || String(v).trim() === '';
+            }).length,
+            total: currentData.length
+        }));
+
+        const table = document.getElementById('data-table');
+        table.innerHTML = '';
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        headerRow.className = 'border-b border-gray-800';
+        ['列名', '缺失数量', '缺失比例'].forEach(h => {
+            const th = document.createElement('th');
+            th.className = 'py-3 px-4 text-left text-gold font-light';
+            th.textContent = h;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        missingCounts.forEach(m => {
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-gray-800/50 hover:bg-dark/50';
+            const pct = ((m.count / m.total) * 100).toFixed(1);
+            [m.column, String(m.count), pct + '%'].forEach(v => {
+                const td = document.createElement('td');
+                td.className = 'py-3 px-4 text-neutral';
+                td.textContent = v;
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        document.getElementById('page-info').textContent = `共 ${headers.length} 列`;
+    });
+
+    // 数据类型统计
+    document.getElementById('show-types').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+
+        const typeInfo = headers.map((h, i) => {
+            const samples = currentData.slice(0, 50).map(row => row[i]).filter(v => v !== null && v !== undefined && String(v).trim() !== '');
+            const isNumeric = samples.length > 0 && samples.every(v => !isNaN(parseFloat(v)) && isFinite(v));
+            const sampleVals = [...new Set(samples.slice(0, 10))].join(', ');
+            return { column: h, type: isNumeric ? '数值' : '文本', samples: sampleVals || '(空)' };
+        });
+
+        const table = document.getElementById('data-table');
+        table.innerHTML = '';
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        headerRow.className = 'border-b border-gray-800';
+        ['列名', '推断类型', '示例值'].forEach(h => {
+            const th = document.createElement('th');
+            th.className = 'py-3 px-4 text-left text-gold font-light';
+            th.textContent = h;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        typeInfo.forEach(t => {
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-gray-800/50 hover:bg-dark/50';
+            [t.column, t.type, t.samples].forEach(v => {
+                const td = document.createElement('td');
+                td.className = 'py-3 px-4 text-neutral text-sm';
+                td.textContent = v;
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        document.getElementById('page-info').textContent = `共 ${headers.length} 列`;
+    });
+
+    // 应用缺失值处理
+    document.getElementById('apply-missing').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+
+        const colIndex = parseInt(document.getElementById('missing-column').value);
+        const method = document.getElementById('missing-method').value;
+        const colName = headers[colIndex];
+
+        if (method === 'drop') {
+            const before = currentData.length;
+            currentData = currentData.filter(row => {
+                const v = row[colIndex];
+                return v !== null && v !== undefined && String(v).trim() !== '';
+            });
+            alert(`已删除 ${before - currentData.length} 行含缺失值的记录`);
+        } else if (method === 'constant') {
+            const fillValue = document.getElementById('constant-value-input').value;
+            currentData.forEach(row => {
+                const v = row[colIndex];
+                if (v === null || v === undefined || String(v).trim() === '') {
+                    row[colIndex] = fillValue;
+                }
+            });
+            alert(`已使用 "${fillValue}" 填充 "${colName}" 列的缺失值`);
+        } else {
+            const values = currentData
+                .map(row => parseFloat(row[colIndex]))
+                .filter(v => !isNaN(v));
+
+            if (values.length === 0) {
+                alert('该列无有效数值，无法计算填充值');
+                return;
+            }
+
+            let fillValue;
+            const sorted = [...values].sort((a, b) => a - b);
+            if (method === 'mean') {
+                fillValue = values.reduce((a, b) => a + b, 0) / values.length;
+            } else if (method === 'median') {
+                const mid = Math.floor(sorted.length / 2);
+                fillValue = sorted.length % 2 === 0 ? (sorted[mid-1] + sorted[mid]) / 2 : sorted[mid];
+            } else if (method === 'mode') {
+                const freq = {};
+                values.forEach(v => freq[v] = (freq[v] || 0) + 1);
+                fillValue = Number(Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0]);
+            }
+
+            currentData.forEach(row => {
+                const v = row[colIndex];
+                if (v === null || v === undefined || String(v).trim() === '') {
+                    row[colIndex] = fillValue;
+                }
+            });
+            alert(`已使用 ${method}(${Number(fillValue).toFixed(2)}) 填充 "${colName}" 列的缺失值`);
+        }
+
+        currentPage = 1;
+        renderTable();
+        if (enginesLoaded.python) loadDataToPython();
+        if (enginesLoaded.r) loadDataToR();
+    });
+
+    // 检测重复值
+    document.getElementById('check-duplicates').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+
+        const seen = new Set();
+        let dupCount = 0;
+        currentData.forEach(row => {
+            const key = JSON.stringify(row);
+            if (seen.has(key)) {
+                dupCount++;
+            } else {
+                seen.add(key);
+            }
+        });
+
+        document.getElementById('duplicate-count').textContent = dupCount;
+        document.getElementById('duplicate-result').classList.remove('hidden');
+        document.getElementById('remove-duplicates').classList.toggle('hidden', dupCount === 0);
+    });
+
+    // 删除重复值
+    document.getElementById('remove-duplicates').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+
+        const seen = new Set();
+        const before = currentData.length;
+        currentData = currentData.filter(row => {
+            const key = JSON.stringify(row);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        const removed = before - currentData.length;
+        alert(`已删除 ${removed} 条重复数据`);
+        document.getElementById('duplicate-result').classList.add('hidden');
+        document.getElementById('remove-duplicates').classList.add('hidden');
+        currentPage = 1;
+        renderTable();
+        if (enginesLoaded.python) loadDataToPython();
+        if (enginesLoaded.r) loadDataToR();
+    });
+
+    // 相关性分析
+    document.getElementById('calc-correlation').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+
+        const numCols = [];
+        const colIndices = [];
+        headers.forEach((h, i) => {
+            const values = currentData.map(row => parseFloat(row[i])).filter(v => !isNaN(v));
+            if (values.length === currentData.length) {
+                numCols.push(h);
+                colIndices.push(i);
+            }
+        });
+
+        if (numCols.length < 2) {
+            alert('需要至少2个完整数值列才能计算相关性');
+            return;
+        }
+
+        const n = numCols.length;
+        const matrix = Array.from({ length: n }, () => Array(n).fill(0));
+
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                if (i === j) {
+                    matrix[i][j] = 1;
+                    continue;
+                }
+                const xi = currentData.map(row => parseFloat(row[colIndices[i]]));
+                const xj = currentData.map(row => parseFloat(row[colIndices[j]]));
+                const meanI = xi.reduce((a, b) => a + b, 0) / xi.length;
+                const meanJ = xj.reduce((a, b) => a + b, 0) / xj.length;
+                const cov = xi.reduce((acc, v, k) => acc + (v - meanI) * (xj[k] - meanJ), 0) / xi.length;
+                const stdI = Math.sqrt(xi.reduce((acc, v) => acc + Math.pow(v - meanI, 2), 0) / xi.length);
+                const stdJ = Math.sqrt(xj.reduce((acc, v) => acc + Math.pow(v - meanJ, 2), 0) / xj.length);
+                matrix[i][j] = (stdI && stdJ) ? cov / (stdI * stdJ) : 0;
+            }
+        }
+
+        const table = document.getElementById('correlation-table');
+        table.innerHTML = '';
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        headerRow.className = 'border-b border-gray-800';
+        const cornerTh = document.createElement('th');
+        cornerTh.className = 'py-2 px-3 text-left text-gold font-light text-xs';
+        cornerTh.textContent = '';
+        headerRow.appendChild(cornerTh);
+        numCols.forEach(h => {
+            const th = document.createElement('th');
+            th.className = 'py-2 px-3 text-left text-gold font-light text-xs';
+            th.textContent = h;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        for (let i = 0; i < n; i++) {
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-gray-800/50';
+            const labelTd = document.createElement('td');
+            labelTd.className = 'py-2 px-3 text-gold text-xs';
+            labelTd.textContent = numCols[i];
+            tr.appendChild(labelTd);
+            for (let j = 0; j < n; j++) {
+                const td = document.createElement('td');
+                td.className = 'py-2 px-3 text-xs';
+                const val = matrix[i][j];
+                const intensity = Math.abs(val);
+                if (i === j) {
+                    td.style.color = '#888';
+                } else if (val > 0) {
+                    td.style.color = `rgba(16,185,129,${0.3 + intensity * 0.7})`;
+                } else {
+                    td.style.color = `rgba(239,68,68,${0.3 + intensity * 0.7})`;
+                }
+                td.textContent = val.toFixed(3);
+                tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
     });
 
     // 生成报告
@@ -1131,6 +1879,1258 @@ print(str(df))
         link.href = URL.createObjectURL(blob);
         link.click();
     });
+
+    // 一键智能分析
+    document.getElementById('run-auto-analysis').addEventListener('click', async () => {
+        if (currentData.length === 0) {
+            alert('请先加载数据文件或点击"演示数据"');
+            return;
+        }
+
+        const statusDiv = document.getElementById('auto-analysis-status');
+        const resultsDiv = document.getElementById('auto-analysis-results');
+        const emptyDiv = document.getElementById('auto-analysis-empty');
+        const progressBar = document.getElementById('auto-progress-bar');
+        const statusText = document.getElementById('auto-status-text');
+
+        emptyDiv.classList.add('hidden');
+        resultsDiv.classList.add('hidden');
+        statusDiv.classList.remove('hidden');
+        progressBar.style.width = '0%';
+
+        const updateProgress = (pct, msg) => {
+            progressBar.style.width = pct + '%';
+            statusText.textContent = msg;
+        };
+
+        // === 数据概览（纯 JS，无需引擎） ===
+        updateProgress('5', '正在分析数据概览...');
+
+        const totalRows = currentData.length;
+        const totalCols = headers.length;
+        const numCols = [];
+        const catCols = [];
+        headers.forEach((h, i) => {
+            const samples = currentData.slice(0, 50).map(row => row[i]).filter(v => v !== null && v !== undefined && String(v).trim() !== '');
+            const isNum = samples.length > 0 && samples.every(v => !isNaN(parseFloat(v)) && isFinite(v));
+            if (isNum) numCols.push({ name: h, index: i });
+            else catCols.push({ name: h, index: i });
+        });
+
+        const totalMissing = currentData.reduce((acc, row) => {
+            return acc + row.filter(v => v === null || v === undefined || String(v).trim() === '').length;
+        }, 0);
+
+        const totalCells = totalRows * totalCols;
+        const completeRate = totalCells > 0 ? ((1 - totalMissing / totalCells) * 100).toFixed(1) : 100;
+
+        document.getElementById('auto-overview').innerHTML = `
+            <div class="p-4 bg-dark rounded-sm">
+                <div class="text-2xl text-gold font-light">${totalRows.toLocaleString()}</div>
+                <div class="text-neutral text-xs mt-1">数据行数</div>
+            </div>
+            <div class="p-4 bg-dark rounded-sm">
+                <div class="text-2xl text-gold font-light">${totalCols}</div>
+                <div class="text-neutral text-xs mt-1">数据列数</div>
+            </div>
+            <div class="p-4 bg-dark rounded-sm">
+                <div class="text-2xl text-gold font-light">${numCols.length}</div>
+                <div class="text-neutral text-xs mt-1">数值列</div>
+            </div>
+            <div class="p-4 bg-dark rounded-sm">
+                <div class="text-2xl text-gold font-light">${completeRate}%</div>
+                <div class="text-neutral text-xs mt-1">数据完整率</div>
+            </div>
+        `;
+
+        // === Python 分析 ===
+        const pyResults = document.getElementById('auto-python-results');
+        if (enginesLoaded.python === true && pyodide) {
+            updateProgress('20', 'Python 引擎分析中...');
+            try {
+                pyodide.globals.set("_auto_json", JSON.stringify([headers, ...currentData]));
+
+                const pyResult = await pyodide.runPythonAsync(`
+import json
+import pandas as pd
+import numpy as np
+import sys
+import io
+_stdout = io.StringIO()
+sys.stdout = _stdout
+
+try:
+    data = json.loads(_auto_json)
+    cols = data[0]
+    rows = data[1:]
+    df = pd.DataFrame(rows, columns=cols)
+    for col in df.columns:
+        try:
+            df[col] = pd.to_numeric(df[col])
+        except (ValueError, TypeError):
+            pass
+
+    print("=" * 50)
+    print("【描述性统计】")
+    print(df.describe().to_string())
+    print()
+    print("=" * 50)
+    print("【数据类型】")
+    print(df.dtypes.to_string())
+    print()
+
+    num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    if len(num_cols) >= 2:
+        print("=" * 50)
+        print("【相关系数矩阵】")
+        corr = df[num_cols].corr()
+        print(corr.to_string())
+        print()
+        max_corr = 0
+        max_pair = ("", "")
+        for i in range(len(num_cols)):
+            for j in range(i+1, len(num_cols)):
+                val = abs(corr.iloc[i, j])
+                if val > max_corr and val < 1:
+                    max_corr = val
+                    max_pair = (num_cols[i], num_cols[j])
+        if max_corr > 0:
+            print(f"最强相关: {max_pair[0]} 与 {max_pair[1]} (r = {corr.loc[max_pair[0], max_pair[1]]:.4f})")
+
+    cat_cols = df.select_dtypes(include=['object']).columns.tolist()
+    if cat_cols:
+        print()
+        print("=" * 50)
+        print("【分类变量统计】")
+        for c in cat_cols[:5]:
+            print(f"\\n--- {c} ---")
+            vc = df[c].value_counts().head(5)
+            print(vc.to_string())
+
+    num_cols_list = df.select_dtypes(include=[np.number]).columns.tolist()
+    if num_cols_list:
+        print()
+        print("=" * 50)
+        print("【缺失值汇总】")
+        missing = df[num_cols_list].isnull().sum()
+        if missing.sum() > 0:
+            print(missing[missing > 0].to_string())
+        else:
+            print("无数值型缺失值")
+finally:
+    sys.stdout = sys.__stdout__
+
+_stdout.getvalue()
+                `);
+
+                const pyOutput = typeof pyResult === 'string' ? pyResult : String(pyResult);
+
+                pyResults.innerHTML = `
+                    <div class="bg-dark rounded-sm p-4 font-mono text-xs overflow-auto max-h-[500px]">
+                        <pre class="text-neutral whitespace-pre-wrap">${escapeHtml(pyOutput) || '无输出'}</pre>
+                    </div>
+                `;
+                updateProgress('60', 'Python 分析完成');
+            } catch (e) {
+                pyResults.innerHTML = `
+                    <div class="bg-dark rounded-sm p-4 border border-danger/30">
+                        <span class="text-danger text-sm">Python 分析出错: ${escapeHtml(e.message || String(e))}</span>
+                    </div>
+                `;
+            }
+        } else {
+            pyResults.innerHTML = `
+                <div class="bg-dark rounded-sm p-4 text-center">
+                    <span class="text-neutral text-sm">Python 引擎${enginesLoaded.python === null ? '加载中...' : '未可用'}，${enginesLoaded.python === false ? '请点击引擎状态栏的"重试"按钮' : '请等待引擎加载完成'}</span>
+                </div>
+            `;
+        }
+
+        // === R 分析 ===
+        const rResults = document.getElementById('auto-r-results');
+        if (enginesLoaded.r === true && webR) {
+            updateProgress('70', 'R 引擎分析中...');
+            try {
+                // 确保数据在 R 中是最新的
+                const lines = [];
+                lines.push(headers.map(h => csvEscapeR(h)).join(','));
+                currentData.forEach(row => {
+                    lines.push(row.map(cell => csvEscapeR(cell ?? '')).join(','));
+                });
+                const csvStr = lines.join('\n');
+                const escapedCsv = csvStr
+                    .replace(/\\/g, '\\\\')
+                    .replace(/"/g, '\\"')
+                    .replace(/\n/g, '\\n')
+                    .replace(/\r/g, '\\r');
+
+                const rCode = `
+df <- read.csv(text = "${escapedCsv}", stringsAsFactors = FALSE)
+for (col in names(df)) {
+    if (all(!is.na(suppressWarnings(as.numeric(as.character(df[[col]])))))) {
+        df[[col]] <- as.numeric(as.character(df[[col]]))
+    }
+}
+
+sink("/tmp/r_auto_output.txt")
+cat(paste(rep("=", 50), collapse=""), "\\n")
+cat("【数据摘要】\\n")
+print(summary(df))
+cat("\\n", paste(rep("=", 50), collapse=""), "\\n")
+cat("【数据结构】\\n")
+str(df)
+
+num_cols <- names(df)[sapply(df, is.numeric)]
+if (length(num_cols) >= 2) {
+    cat("\\n", paste(rep("=", 50), collapse=""), "\\n")
+    cat("【相关系数矩阵】\\n")
+    cor_matrix <- cor(df[num_cols], use="complete.obs")
+    print(round(cor_matrix, 4))
+}
+
+if (length(num_cols) >= 1) {
+    cat("\\n", paste(rep("=", 50), collapse=""), "\\n")
+    cat("【数值列分布】\\n")
+    for (cn in num_cols) {
+        cat("\\n--- ", cn, " ---\\n")
+        cat("均值:", mean(df[[cn]], na.rm=TRUE), " 中位数:", median(df[[cn]], na.rm=TRUE),
+            " 标准差:", sd(df[[cn]], na.rm=TRUE), "\\n")
+        qq <- quantile(df[[cn]], probs=c(0, 0.25, 0.5, 0.75, 1), na.rm=TRUE)
+        cat("分位数:", paste(names(qq), "=", round(qq, 2), collapse=", "), "\\n")
+    }
+}
+
+cat_cols <- names(df)[sapply(df, function(x) is.character(x) || is.factor(x))]
+if (length(cat_cols) > 0) {
+    cat("\\n", paste(rep("=", 50), collapse=""), "\\n")
+    cat("【分类变量统计】\\n")
+    for (cn in cat_cols) {
+        cat("\\n--- ", cn, " ---\\n")
+        tb <- sort(table(df[[cn]], useNA="ifany"), decreasing=TRUE)
+        print(head(tb, 5))
+    }
+}
+
+sink()
+cat(paste(readLines("/tmp/r_auto_output.txt"), collapse="\\n"))
+                `;
+
+                const result = await webR.evalR(rCode);
+                const output = await result.toJs();
+                const rOutput = Array.isArray(output) ? output.join('\n') : String(output);
+
+                rResults.innerHTML = `
+                    <div class="bg-dark rounded-sm p-4 font-mono text-xs overflow-auto max-h-[500px]">
+                        <pre class="text-neutral whitespace-pre-wrap">${escapeHtml(rOutput) || '无输出'}</pre>
+                    </div>
+                `;
+                updateProgress('95', 'R 分析完成');
+            } catch (e) {
+                rResults.innerHTML = `
+                    <div class="bg-dark rounded-sm p-4 border border-danger/30">
+                        <span class="text-danger text-sm">R 分析出错: ${escapeHtml(e.message || String(e))}</span>
+                    </div>
+                `;
+            }
+        } else {
+            rResults.innerHTML = `
+                <div class="bg-dark rounded-sm p-4 text-center">
+                    <span class="text-neutral text-sm">R 引擎${enginesLoaded.r === null ? '加载中...' : '未可用'}，${enginesLoaded.r === false ? '请点击引擎状态栏的"重试"按钮' : '请等待引擎加载完成'}</span>
+                </div>
+            `;
+        }
+
+        // === 数据洞察 ===
+        updateProgress('98', '正在生成数据洞察...');
+        const insights = [];
+        if (totalMissing > 0) {
+            const pct = ((totalMissing / totalCells) * 100).toFixed(1);
+            insights.push(`数据包含 ${totalMissing} 个缺失值（占 ${pct}%），建议在"数据清洗"标签页中进行处理`);
+        } else {
+            insights.push('数据完整性良好，无缺失值');
+        }
+        if (numCols.length >= 2) {
+            insights.push(`发现 ${numCols.length} 个数值型字段："${numCols.map(c => c.name).join('", "')}"，可在"可视化"标签页中生成图表`);
+        }
+        if (catCols.length > 0) {
+            insights.push(`发现 ${catCols.length} 个分类型字段："${catCols.map(c => c.name).join('", "')}"，适合做分组聚合分析`);
+        }
+        if (totalRows > 1000) {
+            insights.push('数据量较大（超过 1000 行），建议使用 Python/R 代码编辑器进行批量处理');
+        }
+        if (numCols.length >= 2) {
+            // 快速检查是否有强相关
+            const values0 = currentData.map(row => parseFloat(row[numCols[0].index])).filter(v => !isNaN(v));
+            if (values0.length > 0) {
+                const mean0 = values0.reduce((a, b) => a + b, 0) / values0.length;
+                const std0 = Math.sqrt(values0.reduce((a, v) => a + Math.pow(v - mean0, 2), 0) / values0.length);
+                const cv = std0 / Math.abs(mean0);
+                if (cv > 1) {
+                    insights.push(`"${numCols[0].name}" 变异系数为 ${cv.toFixed(2)}（>1），数据波动较大，关注异常值`);
+                }
+            }
+        }
+        insights.push('可通过 Python 和 R 代码编辑器进行自定义深度分析');
+
+        document.getElementById('auto-insights').innerHTML = insights.map((ins, i) => `
+            <div class="flex items-start p-3 bg-dark rounded-sm">
+                <span class="text-gold mr-3 mt-0.5">${i + 1}.</span>
+                <span class="text-neutral text-sm">${ins}</span>
+            </div>
+        `).join('');
+
+        updateProgress('100', '分析完成');
+        setTimeout(() => {
+            statusDiv.classList.add('hidden');
+            resultsDiv.classList.remove('hidden');
+        }, 500);
+    });
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ==================== 数据筛选 ====================
+    let originalData = null;
+
+    document.getElementById('apply-filter').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+        const colIdx = parseInt(document.getElementById('filter-column').value);
+        const op = document.getElementById('filter-op').value;
+        const val = document.getElementById('filter-value').value.trim();
+        if (!val && op !== 'eq') return;
+
+        if (!originalData) originalData = [...currentData.map(r => [...r])];
+
+        currentData = originalData.filter(row => {
+            const cellVal = String(row[colIdx] ?? '').trim();
+            const numCell = parseFloat(cellVal);
+            const numVal = parseFloat(val);
+            const useNum = !isNaN(numCell) && !isNaN(numVal);
+
+            switch (op) {
+                case 'eq': return cellVal === val;
+                case 'neq': return cellVal !== val;
+                case 'gt': return useNum ? numCell > numVal : cellVal > val;
+                case 'lt': return useNum ? numCell < numVal : cellVal < val;
+                case 'gte': return useNum ? numCell >= numVal : cellVal >= val;
+                case 'lte': return useNum ? numCell <= numVal : cellVal <= val;
+                case 'contains': return cellVal.toLowerCase().includes(val.toLowerCase());
+                default: return true;
+            }
+        });
+
+        document.getElementById('filter-info').classList.remove('hidden');
+        document.getElementById('filter-count').textContent = currentData.length;
+        document.getElementById('filter-total').textContent = originalData.length;
+        document.getElementById('clear-filter').classList.remove('hidden');
+        currentPage = 1;
+        renderTable();
+    });
+
+    document.getElementById('clear-filter').addEventListener('click', () => {
+        if (originalData) {
+            currentData = [...originalData.map(r => [...r])];
+            originalData = null;
+        }
+        document.getElementById('filter-info').classList.add('hidden');
+        document.getElementById('clear-filter').classList.add('hidden');
+        document.getElementById('filter-value').value = '';
+        currentPage = 1;
+        renderTable();
+    });
+
+    // ==================== 列操作 ====================
+    document.getElementById('col-op').addEventListener('change', (e) => {
+        const op = e.target.value;
+        document.getElementById('col-rename-div').style.display = op === 'delete' ? 'none' : '';
+        const label = document.getElementById('col-target-label');
+        if (op === 'rename') label.textContent = '新名称';
+        else if (op === 'derive') label.textContent = '派生公式';
+        else label.textContent = '确认删除?';
+    });
+
+    document.getElementById('apply-col-op').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+        const op = document.getElementById('col-op').value;
+
+        // 非重命名操作会改变数据结构，清除筛选状态
+        if (op === 'delete' || op === 'derive') {
+            if (originalData) {
+                originalData = null;
+                document.getElementById('filter-info').classList.add('hidden');
+                document.getElementById('clear-filter').classList.add('hidden');
+                document.getElementById('filter-value').value = '';
+            }
+        }
+
+        if (op === 'rename') {
+            const fromIdx = parseInt(document.getElementById('col-rename-from').value);
+            const newName = document.getElementById('col-target-val').value.trim();
+            if (!newName) { alert('请输入新列名'); return; }
+            headers[fromIdx] = newName;
+            populateColumnSelectors();
+            currentPage = 1;
+            renderTable();
+        } else if (op === 'delete') {
+            const fromIdx = parseInt(document.getElementById('col-rename-from').value);
+            const colName = headers[fromIdx];
+            if (!confirm(`确定删除列 "${colName}"？此操作不可撤销！`)) return;
+            headers.splice(fromIdx, 1);
+            currentData.forEach(row => row.splice(fromIdx, 1));
+            populateColumnSelectors();
+            currentPage = 1;
+            renderTable();
+            if (enginesLoaded.python) loadDataToPython();
+            if (enginesLoaded.r) loadDataToR();
+        } else if (op === 'derive') {
+            const formula = document.getElementById('col-target-val').value.trim();
+            if (!formula) { alert('请输入派生公式，如: 销售额-广告费用'); return; }
+            try {
+                const newCol = [];
+                const newHeader = formula.replace(/[^a-zA-Z0-9一-龥_]/g, '_');
+                currentData.forEach(row => {
+                    let expr = formula;
+                    headers.forEach((h, i) => {
+                        const numVal = parseFloat(row[i]);
+                        const replacement = !isNaN(numVal) ? numVal : 0;
+                        expr = expr.replace(new RegExp(h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacement);
+                    });
+                    newCol.push(Function('"use strict"; return (' + expr + ')')());
+                });
+                headers.push(newHeader);
+                currentData.forEach((row, i) => row.push(newCol[i]));
+                populateColumnSelectors();
+                currentPage = 1;
+                renderTable();
+                if (enginesLoaded.python) loadDataToPython();
+                if (enginesLoaded.r) loadDataToR();
+            } catch (e) {
+                alert('公式计算失败: ' + e.message);
+            }
+        }
+    });
+
+    // ==================== 数据导出 ====================
+    function downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+    }
+
+    document.getElementById('export-csv').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+        const csvContent = [headers.join(','), ...currentData.map(r => r.map(c => {
+            const s = String(c ?? '');
+            return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+        }).join(','))].join('\n');
+        downloadFile(csvContent, 'export.csv', 'text/csv;charset=utf-8');
+    });
+
+    document.getElementById('export-json').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+        const json = JSON.stringify(currentData.map(row => {
+            const obj = {};
+            headers.forEach((h, i) => obj[h] = row[i]);
+            return obj;
+        }), null, 2);
+        downloadFile(json, 'export.json', 'application/json;charset=utf-8');
+    });
+
+    document.getElementById('export-xlsx').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...currentData]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+        XLSX.writeFile(wb, 'export.xlsx');
+    });
+
+    // ==================== Python 包按需加载 ====================
+    async function ensurePythonPackages(packages) {
+        if (!pyodide) return false;
+        try {
+            await pyodide.loadPackage(packages);
+            return true;
+        } catch (e) {
+            console.error('Failed to load packages:', packages, e);
+            throw new Error('无法加载 Python 包: ' + packages.join(', ') + ' — ' + (e.message || ''));
+        }
+    }
+
+    // ==================== 假设检验 ====================
+    document.getElementById('run-test').addEventListener('click', async () => {
+        if (currentData.length === 0) return;
+        const testType = document.getElementById('test-type').value;
+        const col1Idx = parseInt(document.getElementById('test-col1').value);
+        const col2Idx = parseInt(document.getElementById('test-col2').value);
+        const resultDiv = document.getElementById('test-result');
+
+        if (!enginesLoaded.python || !pyodide) {
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '<span class="text-warning">需要 Python 引擎支持假设检验</span>';
+            return;
+        }
+
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = '<span class="text-warning">正在加载统计库 (scipy)...</span>';
+
+        try {
+            await ensurePythonPackages(['scipy']);
+            resultDiv.innerHTML = '<span class="text-warning">运行中...</span>';
+            pyodide.globals.set("_test_json", JSON.stringify([headers, ...currentData]));
+            pyodide.globals.set("_test_type", testType);
+            pyodide.globals.set("_test_col1", col1Idx);
+            pyodide.globals.set("_test_col2", col2Idx);
+
+            const result = await pyodide.runPythonAsync(`
+import json
+import pandas as pd
+import numpy as np
+from scipy import stats
+import io, sys
+
+_stdout = io.StringIO()
+sys.stdout = _stdout
+
+try:
+    data = json.loads(_test_json)
+    cols = data[0]
+    rows = data[1:]
+    df = pd.DataFrame(rows, columns=cols)
+    for col in df.columns:
+        try: df[col] = pd.to_numeric(df[col])
+        except: pass
+
+    test_type = _test_type
+    c1 = cols[_test_col1]
+    c2 = cols[_test_col2]
+
+    if test_type == 'ttest':
+        g1 = pd.to_numeric(df[c1], errors='coerce').dropna()
+        g2 = pd.to_numeric(df[c2], errors='coerce').dropna()
+        t_stat, p_val = stats.ttest_ind(g1, g2)
+        print(f"独立样本 t 检验: {c1} vs {c2}")
+        print(f"t 统计量: {t_stat:.4f}")
+        print(f"p 值: {p_val:.6f}")
+        print(f"结论: {'拒绝原假设，两组均值存在显著差异' if p_val < 0.05 else '不能拒绝原假设，两组均值无显著差异'} (α=0.05)")
+
+    elif test_type == 'chisq':
+        from scipy.stats import chi2_contingency
+        ctab = pd.crosstab(df[c1], df[c2])
+        chi2, p_val, dof, expected = chi2_contingency(ctab)
+        print(f"卡方检验: {c1} vs {c2}")
+        print(f"χ² 统计量: {chi2:.4f}")
+        print(f"自由度: {dof}")
+        print(f"p 值: {p_val:.6f}")
+        print(f"结论: {'拒绝原假设，两变量存在关联' if p_val < 0.05 else '不能拒绝原假设，两变量独立'} (α=0.05)")
+
+    elif test_type == 'anova':
+        groups = df.groupby(c2)[c1].apply(lambda x: pd.to_numeric(x, errors='coerce').dropna().values).tolist()
+        groups = [g for g in groups if len(g) > 0]
+        if len(groups) < 2:
+            print("分组数量不足，无法进行 ANOVA 检验")
+        else:
+            f_stat, p_val = stats.f_oneway(*groups)
+            print(f"单因素 ANOVA: {c1} 分组依据 {c2}")
+            print(f"F 统计量: {f_stat:.4f}")
+            print(f"p 值: {p_val:.6f}")
+            print(f"结论: {'拒绝原假设，各组均值存在显著差异' if p_val < 0.05 else '不能拒绝原假设，各组均值无显著差异'} (α=0.05)")
+
+finally:
+    sys.stdout = sys.__stdout__
+
+_stdout.getvalue()
+            `);
+            resultDiv.innerHTML = `<pre class="text-neutral whitespace-pre-wrap">${escapeHtml(String(result))}</pre>`;
+        } catch (e) {
+            resultDiv.innerHTML = `<span class="text-danger">检验出错: ${escapeHtml(e.message || String(e))}</span>`;
+        }
+    });
+
+    // ==================== 透视表 ====================
+    document.getElementById('run-pivot').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+        const rowIdx = parseInt(document.getElementById('pivot-row').value);
+        const colIdxEl = document.getElementById('pivot-col');
+        const colIdx = colIdxEl.value !== '' ? parseInt(colIdxEl.value) : null;
+        const valIdx = parseInt(document.getElementById('pivot-val').value);
+        const agg = document.getElementById('pivot-agg').value;
+
+        const groups = {};
+        currentData.forEach(row => {
+            const rKey = String(row[rowIdx] ?? '');
+            const cKey = colIdx !== null ? String(row[colIdx] ?? '') : '_val';
+            const v = parseFloat(row[valIdx]);
+            if (isNaN(v)) return;
+            if (!groups[rKey]) groups[rKey] = {};
+            if (!groups[rKey][cKey]) groups[rKey][cKey] = [];
+            groups[rKey][cKey].push(v);
+        });
+
+        const aggFn = {
+            sum: arr => arr.reduce((a, b) => a + b, 0),
+            mean: arr => arr.reduce((a, b) => a + b, 0) / arr.length,
+            count: arr => arr.length,
+            min: arr => Math.min(...arr),
+            max: arr => Math.max(...arr)
+        }[agg];
+
+        const colKeys = colIdx !== null ? [...new Set(currentData.map(r => String(r[colIdx] ?? '')))].sort() : ['值'];
+        const rowKeys = Object.keys(groups).sort();
+
+        const table = document.getElementById('pivot-table');
+        let html = '<thead><tr><th class="py-2 px-3 text-gold text-xs text-left bg-darker">' + headers[rowIdx] + '</th>';
+        colKeys.forEach(k => { html += `<th class="py-2 px-3 text-gold text-xs text-right bg-darker">${k}</th>`; });
+        html += '</tr></thead><tbody>';
+
+        rowKeys.forEach(rk => {
+            html += `<tr class="border-b border-gray-800/50"><td class="py-2 px-3 text-neutral text-xs">${rk}</td>`;
+            colKeys.forEach(ck => {
+                const vals = (groups[rk] && groups[rk][ck]) ? groups[rk][ck] : [];
+                const result = vals.length > 0 ? aggFn(vals) : '-';
+                html += `<td class="py-2 px-3 text-neutral text-xs text-right">${typeof result === 'number' ? result.toFixed(2) : result}</td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody>';
+        table.innerHTML = html;
+    });
+
+    // ==================== 机器学习 ====================
+    document.getElementById('run-ml').addEventListener('click', async () => {
+        if (currentData.length === 0) return;
+        const model = document.getElementById('ml-model').value;
+        const featuresSel = document.getElementById('ml-features');
+        const featureIndices = [...featuresSel.selectedOptions].map(o => parseInt(o.value));
+        const targetIdx = parseInt(document.getElementById('ml-target').value);
+        const resultDiv = document.getElementById('ml-result');
+
+        if (!enginesLoaded.python || !pyodide) {
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '<span class="text-warning">需要 Python 引擎支持机器学习</span>';
+            return;
+        }
+
+        if (featureIndices.length === 0) {
+            alert('请选择至少一个特征列（Ctrl+点击多选）');
+            return;
+        }
+        if (model !== 'kmeans' && isNaN(parseInt(document.getElementById('ml-target').value))) {
+            alert('请选择目标列');
+            return;
+        }
+
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = '<span class="text-warning">正在加载机器学习库 (scikit-learn)...</span>';
+
+        try {
+            await ensurePythonPackages(['scikit-learn']);
+            resultDiv.innerHTML = '<span class="text-warning">训练中...</span>';
+            pyodide.globals.set("_ml_json", JSON.stringify([headers, ...currentData]));
+            pyodide.globals.set("_ml_model", model);
+            pyodide.globals.set("_ml_features", JSON.stringify(featureIndices));
+            pyodide.globals.set("_ml_target", targetIdx);
+
+            const result = await pyodide.runPythonAsync(`
+import json, pandas as pd, numpy as np, io, sys
+
+_stdout = io.StringIO()
+sys.stdout = _stdout
+
+error = None
+try:
+    data = json.loads(_ml_json)
+    cols = data[0]
+    rows = data[1:]
+    df = pd.DataFrame(rows, columns=cols)
+    for col in df.columns:
+        try: df[col] = pd.to_numeric(df[col])
+        except: pass
+
+    model = _ml_model
+    features = json.loads(_ml_features)
+    feature_names = [cols[i] for i in features]
+
+    if not feature_names:
+        print("错误: 未选择特征列，请Ctrl+点击选择至少一个特征列")
+        error = True
+    else:
+        X = df[feature_names].copy()
+        for fn in feature_names:
+            X[fn] = pd.to_numeric(X[fn], errors='coerce')
+        X = X.dropna()
+        if len(X) < 3:
+            print(f"错误: 有效样本仅{len(X)}条（至少需3条），请检查特征列是否包含足够的数值数据")
+            error = True
+
+    if not error and model != 'kmeans':
+        target_name = cols[_ml_target]
+        y = pd.to_numeric(df[target_name], errors='coerce')
+        if y.isna().all():
+            print(f"错误: 目标列'{target_name}'不是数值列，请选择数值型列（如 销售额、订单量、广告费用）")
+            error = True
+        else:
+            valid = X.index.intersection(y.dropna().index)
+            X = X.loc[valid]
+            y = y.loc[valid]
+            if len(y) < 3:
+                print(f"错误: 有效样本仅{len(y)}条，至少需要3条")
+                error = True
+
+    if not error:
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import r2_score
+
+        if model == 'linear':
+            from sklearn.linear_model import LinearRegression
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+            lr = LinearRegression()
+            lr.fit(X_train, y_train)
+            y_pred = lr.predict(X_test)
+            r2 = r2_score(y_test, y_pred)
+            print("【线性回归】")
+            print(f"特征: {', '.join(feature_names)}")
+            print(f"目标: {target_name}")
+            print(f"训练集: {len(X_train)} 条, 测试集: {len(X_test)} 条")
+            print(f"R² 得分: {r2:.4f}")
+            for name, coef in zip(feature_names, lr.coef_):
+                print(f"  {name}: {coef:.4f}")
+            print(f"截距: {lr.intercept_:.4f}")
+
+        elif model == 'rf':
+            from sklearn.ensemble import RandomForestRegressor
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+            rf = RandomForestRegressor(n_estimators=100, random_state=42)
+            rf.fit(X_train, y_train)
+            y_pred = rf.predict(X_test)
+            r2 = r2_score(y_test, y_pred)
+            print("【随机森林】")
+            print(f"特征: {', '.join(feature_names)}")
+            print(f"目标: {target_name}")
+            print(f"训练集: {len(X_train)} 条, 测试集: {len(X_test)} 条")
+            print(f"R² 得分: {r2:.4f}")
+            for name, imp in sorted(zip(feature_names, rf.feature_importances_), key=lambda x: -x[1]):
+                print(f"  {name}: {imp:.4f}")
+
+        elif model == 'kmeans':
+            from sklearn.cluster import KMeans
+            from sklearn.preprocessing import StandardScaler
+            X_scaled = StandardScaler().fit_transform(X)
+            k = max(2, min(3, len(X_scaled)))
+            km = KMeans(n_clusters=k, random_state=42, n_init=10)
+            labels = km.fit_predict(X_scaled)
+            print("【K-Means 聚类】")
+            print(f"特征: {', '.join(feature_names)}")
+            print(f"聚类数: {k}")
+            for i in range(k):
+                mask = labels == i
+                print(f"  簇 {i}: {mask.sum()} 个样本, 中心: {np.round(km.cluster_centers_[i], 4)}")
+
+        elif model == 'dtree':
+            from sklearn.tree import DecisionTreeRegressor
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+            dt = DecisionTreeRegressor(max_depth=5, random_state=42)
+            dt.fit(X_train, y_train)
+            y_pred = dt.predict(X_test)
+            r2 = r2_score(y_test, y_pred)
+            print("【决策树】")
+            print(f"特征: {', '.join(feature_names)}")
+            print(f"目标: {target_name}")
+            print(f"训练集: {len(X_train)} 条, 测试集: {len(X_test)} 条")
+            print(f"R² 得分: {r2:.4f}")
+            print(f"树深度: {dt.get_depth()}, 叶节点: {dt.get_n_leaves()}")
+
+except Exception as e:
+    import traceback
+    print(f"训练失败: {e}")
+    print(traceback.format_exc())
+finally:
+    sys.stdout = sys.__stdout__
+
+_stdout.getvalue()
+            `);
+            resultDiv.innerHTML = `<pre class="text-neutral whitespace-pre-wrap">${escapeHtml(String(result))}</pre>`;
+        } catch (e) {
+            resultDiv.innerHTML = `<span class="text-danger">训练出错: ${escapeHtml(e.message || String(e))}</span>`;
+        }
+    });
+
+    // ML 模型切换时调整目标列标签
+    document.getElementById('ml-model').addEventListener('change', (e) => {
+        const isClustering = e.target.value === 'kmeans';
+        document.getElementById('ml-target-label').textContent = isClustering ? '目标列 (可选)' : '目标列 (Y)';
+        document.getElementById('ml-target').style.opacity = isClustering ? '0.5' : '1';
+        document.getElementById('ml-status').textContent = isClustering ? '聚类分析无需目标列' : '';
+    });
+
+    // ==================== 异常检测 ====================
+    document.getElementById('anomaly-method').addEventListener('change', (e) => {
+        const method = e.target.value;
+        document.getElementById('anomaly-threshold').value = method === 'zscore' ? '2.0' : '1.5';
+        document.getElementById('anomaly-threshold-label').textContent = method === 'zscore' ? 'Z-Score 阈值' : method === 'iqr' ? 'IQR 倍数' : '无需阈值';
+        document.getElementById('anomaly-threshold').disabled = method === 'isolation';
+    });
+
+    document.getElementById('run-anomaly').addEventListener('click', async () => {
+        if (currentData.length === 0) return;
+        const method = document.getElementById('anomaly-method').value;
+        const colIdx = parseInt(document.getElementById('anomaly-column').value);
+        const threshold = parseFloat(document.getElementById('anomaly-threshold').value);
+        const resultDiv = document.getElementById('anomaly-result');
+        const colName = headers[colIdx];
+
+        resultDiv.classList.remove('hidden');
+
+        if (method === 'isolation') {
+            if (!enginesLoaded.python || !pyodide) {
+                resultDiv.innerHTML = '<span class="text-warning">Isolation Forest 需要 Python 引擎</span>';
+                return;
+            }
+            resultDiv.innerHTML = '<span class="text-warning">正在加载机器学习库...</span>';
+            try {
+                await ensurePythonPackages(['scikit-learn']);
+                resultDiv.innerHTML = '<span class="text-warning">运行中...</span>';
+                pyodide.globals.set("_anom_json", JSON.stringify([headers, ...currentData]));
+                pyodide.globals.set("_anom_col", colIdx);
+                const result = await pyodide.runPythonAsync(`
+import json, pandas as pd, numpy as np
+from sklearn.ensemble import IsolationForest
+import io, sys
+_stdout = io.StringIO()
+sys.stdout = _stdout
+data = json.loads(_anom_json)
+cols = data[0]; rows = data[1:]
+df = pd.DataFrame(rows, columns=cols)
+for col in df.columns:
+    try: df[col] = pd.to_numeric(df[col])
+    except: pass
+col_name = cols[_anom_col]
+vals = pd.to_numeric(df[col_name], errors='coerce').dropna()
+X = vals.values.reshape(-1, 1)
+iso = IsolationForest(contamination=0.1, random_state=42)
+preds = iso.fit_predict(X)
+n_anomalies = (preds == -1).sum()
+print(f"列: {col_name}")
+print(f"总样本: {len(vals)}")
+print(f"异常值: {n_anomalies} ({n_anomalies/len(vals)*100:.1f}%)")
+print(f"异常值索引: {', '.join(map(str, np.where(preds == -1)[0][:20].tolist()))}" + ("..." if n_anomalies > 20 else ""))
+sys.stdout = sys.__stdout__
+_stdout.getvalue()
+                `);
+                resultDiv.innerHTML = `<pre class="text-neutral whitespace-pre-wrap">${escapeHtml(String(result))}</pre>`;
+            } catch (e) {
+                resultDiv.innerHTML = `<span class="text-danger">检测出错: ${escapeHtml(e.message || String(e))}</span>`;
+            }
+            return;
+        }
+
+        const values = currentData.map((row, i) => {
+            const v = parseFloat(row[colIdx]);
+            return { index: i, value: v, row: row };
+        }).filter(item => !isNaN(item.value));
+
+        if (values.length === 0) {
+            resultDiv.innerHTML = '<span class="text-warning">该列无有效数值数据</span>';
+            return;
+        }
+
+        let anomalies = [];
+        if (method === 'iqr') {
+            const sorted = values.map(v => v.value).sort((a, b) => a - b);
+            const q1Idx = Math.floor(sorted.length * 0.25);
+            const q3Idx = Math.floor(sorted.length * 0.75);
+            const q1 = sorted[q1Idx];
+            const q3 = sorted[q3Idx];
+            const iqr = q3 - q1;
+            const lower = q1 - threshold * iqr;
+            const upper = q3 + threshold * iqr;
+            anomalies = values.filter(v => v.value < lower || v.value > upper);
+            resultDiv.innerHTML = `
+                <div class="space-y-2">
+                    <p class="text-sm"><span class="text-gold">方法:</span> IQR (四分位距法)</p>
+                    <p class="text-sm"><span class="text-gold">Q1:</span> ${q1.toFixed(2)} | <span class="text-gold">Q3:</span> ${q3.toFixed(2)} | <span class="text-gold">IQR:</span> ${iqr.toFixed(2)}</p>
+                    <p class="text-sm"><span class="text-gold">下界:</span> ${lower.toFixed(2)} | <span class="text-gold">上界:</span> ${upper.toFixed(2)}</p>
+                    <p class="text-sm"><span class="text-gold">异常值数量:</span> ${anomalies.length} / ${values.length} (${(anomalies.length/values.length*100).toFixed(1)}%)</p>
+                    ${anomalies.length > 0 ? `<p class="text-sm text-warning">异常值: ${anomalies.slice(0, 15).map(v => `${colName}=${v.value.toFixed(2)}`).join(', ')}${anomalies.length > 15 ? '...' : ''}</p>` : '<p class="text-sm text-success">未发现异常值</p>'}
+                </div>`;
+        } else if (method === 'zscore') {
+            const mean = values.reduce((a, b) => a + b.value, 0) / values.length;
+            const std = Math.sqrt(values.reduce((a, b) => a + Math.pow(b.value - mean, 2), 0) / values.length);
+            anomalies = values.filter(v => Math.abs((v.value - mean) / std) > threshold);
+            resultDiv.innerHTML = `
+                <div class="space-y-2">
+                    <p class="text-sm"><span class="text-gold">方法:</span> Z-Score (标准分数法)</p>
+                    <p class="text-sm"><span class="text-gold">均值:</span> ${mean.toFixed(2)} | <span class="text-gold">标准差:</span> ${std.toFixed(2)} | <span class="text-gold">阈值:</span> ${threshold}</p>
+                    <p class="text-sm"><span class="text-gold">异常值数量:</span> ${anomalies.length} / ${values.length} (${(anomalies.length/values.length*100).toFixed(1)}%)</p>
+                    ${anomalies.length > 0 ? `<p class="text-sm text-warning">异常值: ${anomalies.slice(0, 15).map(v => `${colName}=${v.value.toFixed(2)} (z=${((v.value-mean)/std).toFixed(2)})`).join(', ')}${anomalies.length > 15 ? '...' : ''}</p>` : '<p class="text-sm text-success">未发现异常值</p>'}
+                </div>`;
+        }
+    });
+
+    // ==================== 时间序列分析 ====================
+    let tsChartInstance = null;
+    document.getElementById('run-timeseries').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+        const dateIdx = parseInt(document.getElementById('ts-date-col').value);
+        const valIdx = parseInt(document.getElementById('ts-val-col').value);
+        const window = parseInt(document.getElementById('ts-window').value);
+
+        const pairs = currentData.map(row => ({
+            date: String(row[dateIdx] ?? ''),
+            value: parseFloat(row[valIdx])
+        })).filter(p => !isNaN(p.value));
+
+        if (pairs.length < window) {
+            alert('数据点不足，需要至少 ' + window + ' 个有效数据点');
+            return;
+        }
+
+        // 计算移动平均、趋势
+        const values = pairs.map(p => p.value);
+        const movingAvg = [];
+        for (let i = 0; i < values.length; i++) {
+            if (i < window - 1) { movingAvg.push(null); continue; }
+            let sum = 0;
+            for (let j = i - window + 1; j <= i; j++) sum += values[j];
+            movingAvg.push(sum / window);
+        }
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        const trend = values[values.length - 1] > values[0] ? '上升' : '下降';
+        const volatility = Math.sqrt(values.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / values.length) / Math.abs(mean);
+
+        document.getElementById('ts-stats').innerHTML = `
+            <div class="p-3 bg-dark rounded-sm">
+                <div class="text-lg text-gold">${mean.toFixed(2)}</div>
+                <div class="text-neutral text-xs">均值</div>
+            </div>
+            <div class="p-3 bg-dark rounded-sm">
+                <div class="text-lg ${trend === '上升' ? 'text-success' : 'text-danger'}">${trend}</div>
+                <div class="text-neutral text-xs">趋势方向</div>
+            </div>
+            <div class="p-3 bg-dark rounded-sm">
+                <div class="text-lg text-gold">${(volatility * 100).toFixed(1)}%</div>
+                <div class="text-neutral text-xs">波动率 (CV)</div>
+            </div>`;
+
+        document.getElementById('ts-result').classList.remove('hidden');
+
+        if (tsChartInstance) tsChartInstance.destroy();
+        const ctx = document.getElementById('ts-chart').getContext('2d');
+        tsChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: pairs.map(p => p.date),
+                datasets: [
+                    {
+                        label: headers[valIdx],
+                        data: values,
+                        borderColor: 'rgba(212,177,106,1)',
+                        backgroundColor: 'rgba(212,177,106,0.1)',
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: `移动平均 (k=${window})`,
+                        data: movingAvg,
+                        borderColor: 'rgba(16,185,129,1)',
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#D4B16A' } } },
+                scales: {
+                    x: { ticks: { color: '#888', maxRotation: 45 }, grid: { color: '#222' } },
+                    y: { ticks: { color: '#888' }, grid: { color: '#222' } }
+                }
+            }
+        });
+    });
+
+    // ==================== 智能图表推荐 ====================
+    document.getElementById('smart-chart').addEventListener('click', () => {
+        if (currentData.length === 0) { alert('请先加载数据'); return; }
+        if (document.getElementById('x-axis').options.length === 0) {
+            populateColumnSelectors();
+        }
+
+        const numCols = [];
+        const catCols = [];
+        headers.forEach((h, i) => {
+            const samples = currentData.slice(0, 50).map(row => row[i]).filter(v => v !== null && v !== undefined && String(v).trim() !== '');
+            if (samples.length > 0 && samples.every(v => !isNaN(parseFloat(v)) && isFinite(v))) {
+                numCols.push({ name: h, index: i });
+            } else {
+                catCols.push({ name: h, index: i });
+            }
+        });
+
+        let recommendedType, xIdx, yIdx;
+
+        if (numCols.length >= 2) {
+            recommendedType = 'scatter';
+            xIdx = numCols[0].index;
+            yIdx = numCols[1].index;
+        } else if (numCols.length >= 1 && catCols.length >= 1) {
+            recommendedType = 'bar';
+            xIdx = catCols[0].index;
+            yIdx = numCols[0].index;
+        } else if (numCols.length >= 1) {
+            recommendedType = 'histogram';
+            xIdx = numCols[0].index;
+            yIdx = numCols[0].index;
+        } else {
+            alert('未找到合适的数据列用于图表推荐');
+            return;
+        }
+
+        document.getElementById('chart-type').value = recommendedType;
+        document.getElementById('x-axis').value = xIdx;
+        document.getElementById('y-axis').value = yIdx;
+        doGenerateChart(recommendedType, xIdx, yIdx);
+    });
+
+    // ==================== 图表列表管理 ====================
+    function addChartToList(type, xCol, yCol) {
+        const list = document.getElementById('chart-list');
+        const item = document.createElement('div');
+        item.className = 'flex justify-between items-center p-2 bg-dark rounded-sm';
+        const typeNames = { bar: '柱状图', line: '折线图', pie: '饼图', scatter: '散点图', histogram: '直方图', box: '箱线图', radar: '雷达图', area: '面积图', bubble: '气泡图' };
+        item.innerHTML = `
+            <span>${typeNames[type] || type}: ${xCol} / ${yCol}</span>
+            <button class="text-danger hover:underline text-xs remove-chart-item">删除</button>`;
+        item.querySelector('.remove-chart-item').addEventListener('click', () => item.remove());
+        list.appendChild(item);
+    }
+
+    document.getElementById('clear-charts').addEventListener('click', () => {
+        document.getElementById('chart-list').innerHTML = '';
+        if (currentChart) { currentChart.destroy(); currentChart = null; }
+    });
+
+    // ==================== 增强图表生成 ====================
+    function doGenerateChart(chartType, xIndex, yIndex) {
+        if (currentData.length === 0) return;
+        if (isNaN(xIndex) || isNaN(yIndex) || xIndex < 0 || yIndex < 0 || xIndex >= headers.length || yIndex >= headers.length) return;
+        if (currentChart) currentChart.destroy();
+
+        const labels = currentData.map(row => String(row[xIndex] ?? ''));
+        const values = currentData.map(row => parseFloat(row[yIndex]) || 0);
+        const ctx = document.getElementById('main-chart').getContext('2d');
+
+        let config;
+
+        if (chartType === 'pie') {
+            config = {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: generateColors(labels.length),
+                        borderColor: '#0A0A0A'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#888' } } } }
+            };
+        } else if (chartType === 'radar') {
+            config = {
+                type: 'radar',
+                data: {
+                    labels: labels.slice(0, 10),
+                    datasets: [{
+                        label: headers[yIndex],
+                        data: values.slice(0, 10),
+                        backgroundColor: 'rgba(212,177,106,0.2)',
+                        borderColor: 'rgba(212,177,106,1)',
+                        pointBackgroundColor: 'rgba(212,177,106,1)'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#D4B16A' } } },
+                    scales: { r: { ticks: { color: '#888', backdropColor: 'transparent' }, grid: { color: '#333' }, pointLabels: { color: '#888' } } }
+                }
+            };
+        } else if (chartType === 'area') {
+            config = {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: headers[yIndex],
+                        data: values,
+                        fill: true,
+                        backgroundColor: 'rgba(212,177,106,0.2)',
+                        borderColor: 'rgba(212,177,106,1)',
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#D4B16A' } } },
+                    scales: { x: { ticks: { color: '#888' }, grid: { color: '#222' } }, y: { ticks: { color: '#888' }, grid: { color: '#222' } } }
+                }
+            };
+        } else if (chartType === 'bubble') {
+            config = {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: headers[yIndex],
+                        data: values.map((v, i) => ({ x: i, y: v, r: Math.min(Math.max(Math.abs(v) * 0.5, 3), 30) })),
+                        backgroundColor: generateColors(values.length).map(c => c.replace('0.7', '0.5'))
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#D4B16A' } } },
+                    scales: { x: { ticks: { color: '#888' }, grid: { color: '#222' } }, y: { ticks: { color: '#888' }, grid: { color: '#222' } } }
+                }
+            };
+        } else {
+            // bar, line, scatter, histogram, box
+            config = {
+                type: chartType === 'box' || chartType === 'histogram' ? 'bar' : chartType,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: headers[yIndex],
+                        data: values,
+                        backgroundColor: 'rgba(212,177,106,0.7)',
+                        borderColor: 'rgba(212,177,106,1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#D4B16A' } } },
+                    scales: { x: { ticks: { color: '#888' }, grid: { color: '#222' } }, y: { ticks: { color: '#888' }, grid: { color: '#222' } } }
+                }
+            };
+        }
+
+        currentChart = new Chart(ctx, config);
+        addChartToList(chartType, headers[xIndex], headers[yIndex]);
+    }
+
+    document.getElementById('generate-chart').addEventListener('click', () => {
+        if (currentData.length === 0) { alert('请先加载数据'); return; }
+        const xSel = document.getElementById('x-axis');
+        const ySel = document.getElementById('y-axis');
+        if (xSel.options.length === 0 || ySel.options.length === 0) {
+            populateColumnSelectors();
+        }
+        const chartType = document.getElementById('chart-type').value;
+        const xIndex = parseInt(xSel.value);
+        const yIndex = parseInt(ySel.value);
+        if (isNaN(xIndex) || isNaN(yIndex)) { alert('请选择有效的列'); return; }
+        doGenerateChart(chartType, xIndex, yIndex);
+    });
+
+    // ==================== 仪表盘生成 ====================
+    document.getElementById('build-dashboard').addEventListener('click', () => {
+        if (currentData.length === 0) return;
+
+        const numCols = [];
+        const catCols = [];
+        headers.forEach((h, i) => {
+            const samples = currentData.slice(0, 50).map(row => row[i]).filter(v => v !== null && v !== undefined && String(v).trim() !== '');
+            if (samples.length > 0 && samples.every(v => !isNaN(parseFloat(v)) && isFinite(v))) {
+                numCols.push({ name: h, index: i });
+            } else {
+                catCols.push({ name: h, index: i });
+            }
+        });
+
+        const grid = document.getElementById('dashboard-grid');
+        grid.innerHTML = '';
+
+        const charts = [];
+        // 如果有类别列和数值列，生成柱状图
+        if (catCols.length >= 1 && numCols.length >= 1) {
+            charts.push({ type: 'bar', xIdx: catCols[0].index, yIdx: numCols[0].index, title: `${catCols[0].name} × ${numCols[0].name}` });
+        }
+        // 如果有多个数值列，生成散点图
+        if (numCols.length >= 2) {
+            charts.push({ type: 'scatter', xIdx: numCols[0].index, yIdx: numCols[1].index, title: `${numCols[0].name} vs ${numCols[1].name}` });
+        }
+        // 饼图
+        if (catCols.length >= 1 && numCols.length >= 1) {
+            const pieIdx = catCols.length >= 2 ? catCols[1].index : catCols[0].index;
+            charts.push({ type: 'pie', xIdx: pieIdx, yIdx: numCols[0].index, title: `${headers[pieIdx]} 分布` });
+        }
+        // 折线图
+        if (numCols.length >= 1) {
+            charts.push({ type: 'line', xIdx: numCols.length >= 2 ? numCols[1].index : numCols[0].index, yIdx: numCols[0].index, title: `${numCols[0].name} 趋势` });
+        }
+
+        charts.forEach((chartDef, idx) => {
+            const card = document.createElement('div');
+            card.className = 'bg-darker p-3 rounded-sm border border-gray-800';
+            card.innerHTML = `
+                <h4 class="text-xs text-gold mb-2">${chartDef.title}</h4>
+                <div style="height:200px"><canvas id="dash-chart-${idx}"></canvas></div>`;
+            grid.appendChild(card);
+        });
+
+        // 延迟渲染，等待 canvas 添加到 DOM
+        setTimeout(() => {
+            charts.forEach((chartDef, idx) => {
+                const canvas = document.getElementById('dash-chart-' + idx);
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                const labels = currentData.map(row => String(row[chartDef.xIdx] ?? ''));
+                const values = currentData.map(row => parseFloat(row[chartDef.yIdx]) || 0);
+
+                let config;
+                if (chartDef.type === 'pie') {
+                    config = {
+                        type: 'pie',
+                        data: { labels: labels.slice(0, 10), datasets: [{ data: values.slice(0, 10), backgroundColor: generateColors(Math.min(labels.length, 10)) }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#888', font: { size: 10 } } } } }
+                    };
+                } else {
+                    config = {
+                        type: chartDef.type,
+                        data: { labels: labels, datasets: [{ data: values, backgroundColor: 'rgba(212,177,106,0.6)', borderColor: 'rgba(212,177,106,1)', borderWidth: 1 }] },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: chartDef.type === 'pie' ? undefined : { x: { ticks: { color: '#888', font: { size: 9 } }, grid: { color: '#222' } }, y: { ticks: { color: '#888', font: { size: 9 } }, grid: { color: '#222' } } }
+                        }
+                    };
+                }
+                new Chart(ctx, config);
+            });
+        }, 100);
+    });
+
+    // ==================== 标签页切换时更新内容 ====================
+    // 点击/选择可视化标签时确保列选择器已填充
+    function onVisualizationTab() {
+        if (headers.length > 0 && document.getElementById('x-axis').options.length === 0) {
+            populateColumnSelectors();
+        }
+    }
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        if (btn.dataset.target === 'visualization') {
+            btn.addEventListener('click', onVisualizationTab);
+        }
+    });
+    if (mobileTabSelect) {
+        mobileTabSelect.addEventListener('change', () => {
+            if (mobileTabSelect.value === 'visualization') onVisualizationTab();
+        });
+    }
 </script>
 </body>
 </html>
