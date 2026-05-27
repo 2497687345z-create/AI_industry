@@ -1,2 +1,1 @@
-# AI_industry
-向ai学习
+what life
